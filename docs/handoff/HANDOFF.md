@@ -1,6 +1,12 @@
 # MultiPool / YiiMP modernization: handoff for the next Claude Code session
 
-Last updated: 2026-09-28 (Phase 2 finished, PRs open). Written by the Claude Code session that did this
+Last updated: 2026-09-28 (Phase 3 finished on `claude/phase3`, PR open).
+
+> **Next session, first task:** the owner will test Monero payouts
+> (web cron -> monero-wallet-rpc `transfer_split`) with you next week.
+> Payouts ran once on regtest only (mature_time backdated in SQL), so treat
+> them as lightly tested. See `docs/BRIDGE.md` and the Phase 3 notes below.
+> Merge order: PRs #3, then #4, then the Phase 3 PR, and only when the owner says so. Written by the Claude Code session that did this
 work, so another session can continue where it stopped. Read it all before
 changing anything.
 
