@@ -30,13 +30,38 @@ SOURCES=lyra2re.c lyra2v2.c lyra2v3.c Lyra2.c lyra2z.c Lyra2-z.c lyra2zz.c Lyra2
 	ghostrider.c flex.c cryptonote/cn_slow_hash.c cryptonote/aesb.c cryptonote/c_keccak.c cryptonote/c_blake256.c \
 	cryptonote/c_groestl.c cryptonote/c_jh.c cryptonote/c_skein.c \
 	progpow/keccak.c progpow/keccakf800.c progpow/keccakf1600.c progpow/primes.c progpow/progpow.cpp \
-	equihash/equihash_verify.c \
+	equihash/equihash_verify.c cryptonote_block.c \
+	$(RANDOMX_SOURCES)
+
+# RandomX (tevador/RandomX, BSD-3, see randomx/README.yiimp): the portable
+# interpreter plus the JIT compiler of the machine (x86-64 or ARMv8). The
+# hardware AES and AVX2/SSSE3 Argon2 code is selected at run time
+# (randomx_get_flags), as in the RandomX CMake build.
+RANDOMX_SOURCES = randomx/aes_hash.cpp randomx/argon2_ref.c randomx/argon2_ssse3.c randomx/argon2_avx2.c \
+	randomx/bytecode_machine.cpp randomx/cpu.cpp randomx/dataset.cpp randomx/soft_aes.cpp \
+	randomx/virtual_memory.c randomx/vm_interpreted.cpp randomx/allocator.cpp \
+	randomx/assembly_generator_x86.cpp randomx/instruction.cpp randomx/randomx.cpp \
+	randomx/superscalar.cpp randomx/vm_compiled.cpp randomx/vm_interpreted_light.cpp \
+	randomx/argon2_core.c randomx/blake2_generator.cpp randomx/instructions_portable.cpp \
+	randomx/reciprocal.c randomx/virtual_machine.cpp randomx/vm_compiled_light.cpp \
+	randomx/blake2/blake2b.c
+UNAME_M := $(shell uname -m)
+ifneq (,$(filter x86_64 amd64,$(UNAME_M)))
+RANDOMX_SOURCES += randomx/jit_compiler_x86.cpp randomx/jit_compiler_x86_static.S
+randomx/%.o: CXXFLAGS += -maes
+randomx/%.o: CFLAGS += -maes
+randomx/argon2_ssse3.o: CFLAGS += -mssse3
+randomx/argon2_avx2.o: CFLAGS += -mavx2
+endif
+ifneq (,$(filter aarch64 arm64,$(UNAME_M)))
+RANDOMX_SOURCES += randomx/jit_compiler_a64.cpp randomx/jit_compiler_a64_static.S
+endif
 
 # BLAKE3 (decred, blake3): portable C only, no SIMD code to keep the build
 # independent of MARCH (a 180-byte header is a single BLAKE3 chunk anyway)
 blake3/%.o: CFLAGS += -DBLAKE3_NO_SSE2 -DBLAKE3_NO_SSE41 -DBLAKE3_NO_AVX2 -DBLAKE3_NO_AVX512 -DBLAKE3_USE_NEON=0
 
-OBJECTS=$(patsubst %.cpp,%.o,$(SOURCES:.c=.o))
+OBJECTS=$(patsubst %.S,%.o,$(patsubst %.cpp,%.o,$(SOURCES:.c=.o)))
 OUTPUT=libalgos.a
 
 all: $(OUTPUT)
@@ -49,6 +74,9 @@ $(OUTPUT): $(OBJECTS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 .c.o:
+	$(CC) $(CFLAGS) -c $< -o $@
+
+%.o: %.S
 	$(CC) $(CFLAGS) -c $< -o $@
 
 #	$(CC) $(CFLAGS) -std=gnu99 -Wno-pointer-sign -Wno-pointer-to-int-cast -funroll-loops -fvariable-expansion-in-unroller -fmerge-all-constants -fbranch-target-load-optimize2 -fsched2-use-superblocks -falign-loops=16 -falign-functions=16 -falign-jumps=16 -falign-labels=16 -Ofast -flto -fuse-linker-plugin -ftree-loop-if-convert-stores -DUSE_ASM -pg $<
@@ -65,3 +93,4 @@ clean:
 	rm -f cryptonote/*.o cryptonote/*.d
 	rm -f progpow/*.o progpow/*.d
 	rm -f equihash/*.o equihash/*.d
+	rm -f randomx/*.o randomx/*.d randomx/blake2/*.o randomx/blake2/*.d

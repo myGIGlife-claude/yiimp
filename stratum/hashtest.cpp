@@ -12,6 +12,8 @@
 #include "stratum.h"
 #include "sha3/sph_blake.h"
 #include "algos/equihash/equihash_verify.h"
+#include "algos/randomx/randomx.h"
+#include "algos/cryptonote_block.h"
 
 // same wrappers as in stratum.cpp
 static void scrypt_hash(const char* input, char* output, uint32_t len)
@@ -617,6 +619,108 @@ static int run_equihash_kats(const char *only)
 	return errors;
 }
 
+// RandomX: the official test vectors (tevador/RandomX src/tests/tests.cpp, v1 and v2),
+// and a Monero mainnet block (node RPC get_block): the block blob is parsed, its hashing
+// blob and block id computed (the id must be the one of the chain) and hashed with the
+// seed (the id of block 3770368, the seed height of 3772000); the PoW hash must meet the
+// block difficulty (753409903480) and gives the expected value.
+static const struct { const char *key, *input, *v1, *v2; } randomx_vectors[] = {
+	{ "test key 000", "This is a test",
+	  "639183aae1bf4c9a35884cb46b09cad9175f04efd7684e7262a0ac1c2f0b4e3f",
+	  "22ec6b861b3eb23686b2efbad69513c967ecfce80983df66c9c5b4fbfb4cdb6f" },
+	{ "test key 000", "Lorem ipsum dolor sit amet",
+	  "300a0adb47603dedb42228ccb2b211104f4da45af709cd7547cd049e9489c969",
+	  "9e2c772c12fd48f93c14c97fdc89d556264d9100597023f44d9163e279012ecf" },
+	{ "test key 000", "sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+	  "c36d4ed4191e617309867ed66a443be4075014e2b061bcdaf9ce7b721d2b77a8",
+	  "4d6b063a1a603751d525f18a171336a4002f2f06df6c17e4b25fe17e17796e42" },
+	{ "test key 001", "sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+	  "e9ff4503201c0c2cca26d285c93ae883f9b1d30c9eb240b820756f2d5a7905fc",
+	  "97024134686ce27d362ea8d86d8ef16483ac272abdabd46ef13359400777fe5e" },
+	{ NULL, NULL, NULL, NULL }
+};
+
+static const char xmr_block_3772000[] =
+	"1010b6fde6d506642ff8272f512049701bfc97a23e7aeb39b8392923a22263f05e8300f3bcdb0c8703009d029c9de60101ffe09ce60101c0ddbbdbc9"
+	"1103c3132ab21c24ad364f9d35fcd75280e058b020c135ff4bec142576f4f1ca05eecd66032100a6baab40092d905c0d9e6c3c04e32c237bc3639015"
+	"f68719c8140defd4fa787801176868268c8029716573c25899223cac5b6d0e6a61488b0397d735ae427678070220000000bb2864fa97000000000000"
+	"00000000000000000000000000000000000000093aaf0f3ad86f116beb1cfdef5d993570f7dfbd562f8c484f489bb2e1823756fa8d1a6b513af37ad0"
+	"337133de81bb38ea8bb079f4b999b8bfb68f022bc1a5c71944baa54833bfc881a176b4048a08986deb5b1e6461302016054d47803bc05858fd6fb9fb"
+	"b3bf12de1814cd85e609fb208da673bd7c68e112ae0d2d9ebdca0a213600a3600b630bc59119b1dfe78f0b654234475451e8f42c604eeff484a8ae17"
+	"40ec740ad9db3673edbf578d0a2bcfc81560026d6544aed153b806a7bd40a87a30b172a6f1a31fbf73da0ee83b7d657708077e69daadee15b66453a4"
+	"5f47fb59d5d81a8393225d0f3c6cb907e419e26908ea3247b636767e638010f6318820ccbe782f1706c2afeed24038646d2869a2a45551806bb5be96"
+	"9ff571718fee6951";
+
+static int run_randomx_kats(const char *only)
+{
+	int errors = 0;
+	if (only && strcmp(only, "randomx")) return 0;
+
+	randomx_flags flags = randomx_get_flags();
+	for (int v2 = 0; v2 < 2; v2++) {
+		randomx_flags f = (randomx_flags) (flags | (v2 ? RANDOMX_FLAG_V2 : 0));
+		randomx_cache *cache = randomx_alloc_cache(f);
+		randomx_vm *vm = NULL;
+		const char *key = "";
+		int ok = 0, total = 0;
+		for (int k = 0; cache && randomx_vectors[k].key; k++) {
+			if (strcmp(key, randomx_vectors[k].key)) {
+				key = randomx_vectors[k].key;
+				randomx_init_cache(cache, key, strlen(key));
+				if (vm) randomx_vm_set_cache(vm, cache);
+				else vm = randomx_create_vm(f, cache, NULL);
+				if (!vm) break;
+			}
+			unsigned char out[32];
+			char hex[65];
+			randomx_calculate_hash(vm, randomx_vectors[k].input, strlen(randomx_vectors[k].input), out);
+			to_hex(out, 32, hex);
+			total++;
+			if (!strcmp(hex, v2 ? randomx_vectors[k].v2 : randomx_vectors[k].v1)) ok++;
+			else printf("FAIL randomx%s vector %d: %s\n", v2 ? " v2" : "", k, hex);
+		}
+		if (vm) randomx_destroy_vm(vm);
+		if (cache) randomx_release_cache(cache);
+		if (ok == 4 && total == 4) printf("OK   randomx%s KAT (official test vectors)\n", v2 ? " v2" : "");
+		else errors++;
+	}
+
+	// Monero block 3772000
+	size_t size = strlen(xmr_block_3772000) / 2;
+	unsigned char *blob = (unsigned char *) malloc(size);
+	from_hex(xmr_block_3772000, blob, (int) size);
+	struct cn_block_info info;
+	unsigned char hb[256], id[32], seed[32], pow[32];
+	char id_hex[65], pow_hex[65];
+	bool ok = cn_block_parse(blob, size, &info) == 0 && info.miner_tx_height == 3772000 && info.tx_count == 9;
+	size_t hl = ok ? cn_block_hashing_blob(blob, &info, hb) : 0;
+	cn_block_id(hb, hl, id);
+	to_hex(id, 32, id_hex);
+	ok = ok && !strcmp(id_hex, "a4c2b0b048b33bfbdda16d45184594f6e1928132a190088812eb8c72befed433");
+
+	from_hex("5a0b88ac4f99a2107598f99ecd79404aa3fa27f8e1df798a8e64b63cee56f9e7", seed, 32);
+	randomx_cache *cache = randomx_alloc_cache(flags);
+	randomx_vm *vm = NULL;
+	if (cache) {
+		randomx_init_cache(cache, seed, 32);
+		vm = randomx_create_vm(flags, cache, NULL);
+	}
+	if (vm) randomx_calculate_hash(vm, hb, hl, pow);
+	else memset(pow, 0xff, 32);
+	to_hex(pow, 32, pow_hex);
+	ok = ok && !strcmp(pow_hex, "de92b421d1e0c6a2e86cb884225416f9031478f8deb3aeba8e129f0000000000")
+		&& cn_check_hash(pow, 753409903480ULL, 0) && !cn_check_hash(pow, 753409903480ULL * 1000, 0);
+	if (vm) randomx_destroy_vm(vm);
+	if (cache) randomx_release_cache(cache);
+	free(blob);
+	if (ok) printf("OK   randomx KAT (XMR block 3772000, block id and pow hash)\n");
+	else {
+		printf("FAIL randomx KAT (XMR block 3772000): id %s pow %s\n", id_hex, pow_hex);
+		errors++;
+	}
+	return errors;
+}
+
 int main(int argc, char **argv)
 {
 	unsigned char input[256];
@@ -644,6 +748,7 @@ int main(int argc, char **argv)
 	errors += run_kats(argc > 1 ? argv[1] : NULL);
 	errors += run_progpow_kats(argc > 1 ? argv[1] : NULL);
 	errors += run_equihash_kats(argc > 1 ? argv[1] : NULL);
+	errors += run_randomx_kats(argc > 1 ? argv[1] : NULL);
 	for (int k = 0; kat_vectors[k].name; k++) {
 		unsigned char hdr[80];
 		if (argc > 1 && strcmp(argv[1], kat_vectors[k].name)) continue;

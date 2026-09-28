@@ -1,0 +1,10 @@
+RandomX, imported from https://github.com/tevador/RandomX
+commit 7607fb2faed24d5a679e139a9828d194bbc644a4 (2026-06, after v2.0.1)
+License: BSD-3-Clause (LICENSE in this directory), copyright headers kept.
+
+Imported: src/ (x86-64 and ARMv8 JIT, portable interpreter), src/blake2,
+src/asm/*.inc. Not imported: the RISC-V code, Windows .asm, tests, CMake.
+No source changes. Built into libalgos.a by ../makefile.
+
+Monero mainnet uses RandomX v1 (no RANDOMX_FLAG_V2); the v2 flag is exposed by
+the randomx protocol of the stratum (randomx_v2 in the .conf) for future forks.
