@@ -29,6 +29,9 @@ function yaamp_get_algos()
         'dedal',
         'deep',
         'dmd-gr',
+        'equihash',
+        'equihash144',
+        'equihash192',
         'evrprogpow',
         'exosis',
         'firopow',
@@ -128,6 +131,7 @@ function yaamp_get_algos()
         'yespowerLTNCG',
         'yespowerMGPC',
         'yespowerR16',
+        'yespowerRES',
         'yespowerSUGAR',
         'yespowerTIDE',
         'yespowerurx',
@@ -159,6 +163,10 @@ function yaamp_algo_mBTC_factor($algo)
         case 'ghostrider':
         case 'mike':
         case 'flex':
+        case 'yespowerRES':
+        case 'equihash':
+        case 'equihash144':
+        case 'equihash192':
             return 0.001;
         default:
             return 1;
@@ -238,6 +246,9 @@ function getAlgoColors($algo)
         'dedal' => '#e0e0e0',
         'deep' => '#e0ffff',
         'dmd-gr' => '#a0c0f0',
+        'equihash' => '#e8c890',
+        'equihash144' => '#d8c8a0',
+        'equihash192' => '#c8b890',
         'evrprogpow' => '#a0d0f0',
         'exosis' => '#49CCFE',
         'firopow' => '#e08080',
@@ -337,6 +348,7 @@ function getAlgoColors($algo)
         'yespowerLTNCG' => '#d0c0e0',
         'yespowerMGPC' => '#c8d8c8',
         'yespowerR16' => '#e2d0d2',
+        'yespowerRES' => '#d0c0f8',
         'yespowerSUGAR' => '#e0c0a0',
         'yespowerTIDE' => '#d8e0c0',
         'yespowerurx' => '#e0e0e0',
@@ -379,6 +391,9 @@ function getAlgoPort($algo)
         'dedal' => 3538,
         'deep' => 3535,
         'dmd-gr' => 5333,
+        'equihash' => 9600,
+        'equihash144' => 9601,
+        'equihash192' => 9602,
         'evrprogpow' => 9502,
         'exosis' => 3557,
         'firopow' => 9504,
@@ -478,6 +493,7 @@ function getAlgoPort($algo)
         'yespowerLTNCG' => 9104,
         'yespowerMGPC' => 9105,
         'yespowerR16' => 6236,
+        'yespowerRES' => 9650,
         'yespowerSUGAR' => 9102,
         'yespowerTIDE' => 9101,
         'yespowerurx' => 9405,
@@ -540,7 +556,16 @@ function take_yaamp_fee($v, $algo, $percent = -1)
 
 function yaamp_hashrate_constant($algo = null)
 {
-    return pow(2, 42); // 0x400 00000000
+    switch ($algo) {
+        case 'equihash':
+        case 'equihash144':
+        case 'equihash192':
+            // Sol/s: a share of difficulty 1 (target 0x0007ffff...) is 8192
+            // solutions; same 1.024 (k) convention as the 2^42 below
+            return pow(2, 23);
+        default:
+            return pow(2, 42); // 0x400 00000000
+    }
 }
 
 function yaamp_hashrate_step()

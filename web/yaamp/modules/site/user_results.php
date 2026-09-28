@@ -69,11 +69,14 @@ $total_unsold = 0;
 
 foreach ($users as $user)
 {
-    $target = yaamp_hashrate_constant();
     $interval = yaamp_hashrate_step(); // 300 seconds
     $delay = time() - $interval;
 
-    $user_rate = dboscalar("SELECT (sum(difficulty) * $target / $interval / 1000) FROM shares WHERE valid AND time>$delay AND userid=" . $user->id);
+    // the hashrate constant depends on the algo (Sol/s for equihash)
+    $user_rate = 0;
+    $rows = dbolist("SELECT algo, sum(difficulty) AS diff FROM shares WHERE valid AND time>$delay AND userid=" . intval($user->id) . " GROUP BY algo");
+    foreach ($rows as $row)
+        $user_rate += $row['diff'] * yaamp_hashrate_constant($row['algo']) / $interval / 1000;
     $user_bad = yaamp_user_rate_bad($user->id); // dboscalar("SELECT (count(id) * $target / $interval / 1000) FROM shares WHERE valid=0 AND time>$delay AND userid=".$user->id);
     $pct_bad = $user_rate ? round($user_bad * 100 / $user_rate, 3) : 0;
 
