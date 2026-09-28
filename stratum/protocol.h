@@ -28,6 +28,18 @@
 //                                   stratum (mining.set_target, 32 byte nonce = nonce1 || nonce2)
 //             (same file)           yespowerRES: Zcash style 140 byte header without solution,
 //                                   Bitcoin stratum of its miner (only template/notify hooks)
+//   CRYPTONOTE protocol_randomx.cpp randomx: Monero style daemons (monerod JSON-RPC, not Bitcoin
+//                                   derived): the template comes from get_block_template
+//                                   (create_template hook), the miners speak the xmrig/CryptoNote
+//                                   stratum (login/job/submit/keepalived with named params, request
+//                                   hook), a new block is submitted with submit_block
+//
+// Hooks for daemons that are not Bitcoin derived (all optional):
+//   db.cpp           coin read from the db  -> coind_config()        (rpc path, auth...)
+//   coind.cpp        coind_init             -> coind_init()          (instead of validateaddress)
+//   coind_template.cpp coind_create_job     -> create_template()     (instead of getblocktemplate)
+//   client.cpp       every request          -> request()             (before the Bitcoin methods)
+//   client_core.cpp  client_send_error      -> send_error()          (error format of the miners)
 
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
@@ -37,6 +49,7 @@ enum YAAMP_PROTOCOL_FAMILY
 	YAAMP_PROTOCOL_BITCOIN = 0,
 	YAAMP_PROTOCOL_KAWPOW,
 	YAAMP_PROTOCOL_EQUIHASH,
+	YAAMP_PROTOCOL_CRYPTONOTE,
 };
 
 struct YAAMP_PROTOCOL
@@ -71,6 +84,24 @@ struct YAAMP_PROTOCOL
 
 	// own settings of the conf file, optional (called before init)
 	void (*config)(dictionary *ini);
+
+	// daemons that are not Bitcoin derived (optional, see above)
+
+	// any request of a miner, before the Bitcoin stratum methods (which need array params):
+	// return true if handled, *keep = false closes the connection
+	bool (*request)(YAAMP_CLIENT *client, const char *method, json_value *json, bool *keep);
+
+	// error answer in the format of the protocol
+	int (*send_error)(YAAMP_CLIENT *client, int error, const char *message);
+
+	// the job template, from the daemon (replaces getblocktemplate/coinbase_create/template_prepare)
+	YAAMP_JOB_TEMPLATE *(*create_template)(YAAMP_COIND *coind);
+
+	// connection settings of a coin, after it is read from the coins table
+	void (*coind_config)(YAAMP_COIND *coind);
+
+	// startup check of a coin (replaces the Bitcoin validateaddress of the pool wallet)
+	void (*coind_init)(YAAMP_COIND *coind);
 };
 
 // NULL for the Bitcoin family
@@ -98,8 +129,17 @@ bool protocol_hex_param(const char *param, char *out, int hexlen);
 bool protocol_submit_block(YAAMP_CLIENT *client, YAAMP_JOB *job, const char *header_hex,
 	const char *coinbase_hex, const char *blockid, const char *powhash, double diff_user);
 
+// a block the daemon accepted: record it for the blocks table (block_diff is the network
+// difficulty stored with it), confirm it if blocknotify already came
+void protocol_block_accepted(YAAMP_CLIENT *client, YAAMP_JOB *job, double block_diff, double diff_user,
+	const char *blockid, const char *powhash);
+
 // share accounting and answer, as the Bitcoin path does
 void protocol_share_accepted(YAAMP_CLIENT *client, YAAMP_JOB *job, char *nonce, double share_diff);
 void protocol_share_rejected(YAAMP_CLIENT *client, YAAMP_JOB *job, int error, const char *message, char *nonce);
+
+// share accounting only (the answer is sent by the caller)
+void protocol_share_record(YAAMP_CLIENT *client, YAAMP_JOB *job, bool valid, char *nonce, double share_diff,
+	int error, const char *message);
 
 #endif

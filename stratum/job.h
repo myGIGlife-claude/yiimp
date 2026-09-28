@@ -83,6 +83,10 @@ struct YAAMP_JOB_TEMPLATE
 	char proto_notify[640];         // equihash: the header fields of mining.notify (JSON strings)
 	int eq_n, eq_k;                 // equihash: parameters of the template
 	char eq_pers[16];               // equihash: first 8 bytes of the BLAKE2b personalization
+	double proto_netdiff;           // network difficulty in the units of the daemon (when not from nbits)
+	uint64_t proto_diff[2];         // cryptonote: block difficulty (128 bits, low and high words)
+	int proto_reserved;             // cryptonote: offset of the pool extranonce in the miner tx
+	int proto_nonce;                // cryptonote: offset of the nonce in the header
 };
 
 #define YAAMP_JOB_MAXSUBIDS		200

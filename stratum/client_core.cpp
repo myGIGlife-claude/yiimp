@@ -64,6 +64,9 @@ void client_sort()
 
 int client_send_error(YAAMP_CLIENT *client, int error, const char *string)
 {
+	if(g_protocol && g_protocol->send_error)
+		return g_protocol->send_error(client, error, string);
+
 	char buffer3[1024];
 
 	if(client->id_str)

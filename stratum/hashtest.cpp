@@ -103,6 +103,7 @@ static const struct test_algo algos[] = {
 	{ "quark", quark_hash },
 	{ "qubit", qubit_hash },
 	{ "rainforest", rainforest_hash },
+	{ "randomx", randomx_hash },
 	{ "scrypt", scrypt_hash },
 	{ "scryptn", scryptn_hash },
 	{ "sha256", sha256_double_hash },
@@ -712,6 +713,23 @@ static int run_randomx_kats(const char *only)
 		&& cn_check_hash(pow, 753409903480ULL, 0) && !cn_check_hash(pow, 753409903480ULL * 1000, 0);
 	if (vm) randomx_destroy_vm(vm);
 	if (cache) randomx_release_cache(cache);
+
+	// the tree hash from the branch of the miner tx (what the pool computes per miner)
+	for (uint64_t count = 1; ok && count <= info.tx_count + 1; count++) {
+		unsigned char (*hashes)[32] = (unsigned char (*)[32]) malloc(count * 32);
+		unsigned char branch[64][32], root1[32], root2[32];
+		cn_block_miner_tx_hash(blob, &info, hashes[0]);
+		memcpy(hashes[1], blob + info.tx_hashes_offset, (count - 1) * 32);
+		cn_tree_hash((const unsigned char (*)[32]) hashes, count, root1);
+		size_t depth = cn_tree_branch0((const unsigned char (*)[32]) hashes, count, branch);
+		cn_tree_root_branch0(hashes[0], (const unsigned char (*)[32]) branch, depth, root2);
+		if (memcmp(root1, root2, 32)) {
+			printf("FAIL randomx tree branch, %d hashes\n", (int) count);
+			ok = false;
+		}
+		if (count == info.tx_count + 1) ok = ok && !memcmp(root1, hb + info.header_size, 32);
+		free(hashes);
+	}
 	free(blob);
 	if (ok) printf("OK   randomx KAT (XMR block 3772000, block id and pow hash)\n");
 	else {

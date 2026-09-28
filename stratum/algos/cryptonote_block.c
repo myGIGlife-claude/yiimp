@@ -51,6 +51,47 @@ void cn_tree_hash(const unsigned char (*hashes)[32], size_t count, unsigned char
 	}
 }
 
+size_t cn_tree_branch0(const unsigned char (*hashes)[32], size_t count, unsigned char (*branch)[32])
+{
+	const unsigned char *h = (const unsigned char *) hashes;
+	if (count <= 1) return 0;
+	if (count == 2) {
+		memcpy(branch[0], h + 32, 32);
+		return 1;
+	}
+	size_t i, j, depth = 0;
+	size_t cnt = tree_hash_cnt(count);
+	if (cnt < 2 || 2 * cnt < count) return 0;
+	unsigned char *ints = (unsigned char *) calloc(cnt, 32);
+	if (!ints) return 0;
+	// the first hash is at position 0 of every level, its sibling at position 1
+	memcpy(ints, h, (2 * cnt - count) * 32);
+	if (2 * cnt == count) memcpy(branch[depth++], h + 32, 32);
+	for (i = 2 * cnt - count, j = 2 * cnt - count; j < cnt; i += 2, ++j)
+		cn_fast_hash(h + 32 * i, 64, ints + 32 * j);
+	while (cnt > 2) {
+		memcpy(branch[depth++], ints + 32, 32);
+		cnt >>= 1;
+		for (i = 0, j = 0; j < cnt; i += 2, ++j)
+			cn_fast_hash(ints + 32 * i, 64, ints + 32 * j);
+	}
+	memcpy(branch[depth++], ints + 32, 32);
+	free(ints);
+	return depth;
+}
+
+void cn_tree_root_branch0(const unsigned char first[32], const unsigned char (*branch)[32], size_t depth,
+	unsigned char root[32])
+{
+	unsigned char buf[64];
+	memcpy(root, first, 32);
+	for (size_t d = 0; d < depth; d++) {
+		memcpy(buf, root, 32);
+		memcpy(buf + 32, branch[d], 32);
+		cn_fast_hash(buf, 64, root);
+	}
+}
+
 int cn_varint_read(const unsigned char *p, size_t len, uint64_t *value)
 {
 	uint64_t v = 0;
@@ -284,4 +325,32 @@ int cn_check_hash(const unsigned char hash[32], uint64_t diff_lo, uint64_t diff_
 		}
 	}
 	return r[4] == 0 && r[5] == 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+#include <pthread.h>
+#include "randomx/randomx.h"
+
+// g_algos/hashtest only: the stratum hashes the shares with the seed of each job
+// (protocol_randomx.cpp)
+void randomx_hash(const char *input, char *output, uint32_t len)
+{
+	static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+	static randomx_cache *cache = NULL;
+	static randomx_vm *vm = NULL;
+	static const char key[] = "YiiMP RandomX test key";
+
+	pthread_mutex_lock(&mutex);
+	if (!vm) {
+		randomx_flags flags = randomx_get_flags();
+		cache = randomx_alloc_cache(flags);
+		if (cache) {
+			randomx_init_cache(cache, key, sizeof(key) - 1);
+			vm = randomx_create_vm(flags, cache, NULL);
+		}
+	}
+	if (vm) randomx_calculate_hash(vm, input, len, output);
+	else memset(output, 0xff, 32);
+	pthread_mutex_unlock(&mutex);
 }

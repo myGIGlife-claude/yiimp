@@ -231,12 +231,20 @@ static json_value *curl_json_rpc(YAAMP_RPC *rpc, const char *url, const char *rp
 	curl_easy_setopt(curl, CURLOPT_TCP_NODELAY, 1);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, all_data_cb);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &all_data);
+	// daemons with an url path (monerod /json_rpc): plain POST data, so that the digest
+	// authentication can resend it on the same connection
+	bool postfields = rpc->path[0] != '\0';
+	if (postfields) {
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, rpc_req);
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long) strlen(rpc_req));
+	} else {
 	curl_easy_setopt(curl, CURLOPT_READFUNCTION, upload_data_cb);
 	curl_easy_setopt(curl, CURLOPT_READDATA, &upload_data);
 #if LIBCURL_VERSION_NUM >= 0x071200
 	curl_easy_setopt(curl, CURLOPT_SEEKFUNCTION, &seek_data_cb);
 	curl_easy_setopt(curl, CURLOPT_SEEKDATA, &upload_data);
 #endif
+	}
 	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curl_err_str);
 	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
 	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5);
@@ -250,6 +258,11 @@ static json_value *curl_json_rpc(YAAMP_RPC *rpc, const char *url, const char *rp
 
 	// Encoded login/pass
 	snprintf(auth_hdr, sizeof(auth_hdr), "Authorization: Basic %s", rpc->credential);
+	if (rpc->userpwd[0]) {
+		// basic or digest (monerod --rpc-login), negotiated by curl
+		curl_easy_setopt(curl, CURLOPT_USERPWD, rpc->userpwd);
+		curl_easy_setopt(curl, CURLOPT_HTTPAUTH, (long) (CURLAUTH_BASIC | CURLAUTH_DIGEST));
+	}
 
 #if LIBCURL_VERSION_NUM >= 0x070f06
 	if (keepalive)
@@ -266,8 +279,10 @@ static json_value *curl_json_rpc(YAAMP_RPC *rpc, const char *url, const char *rp
 	sprintf(len_hdr, "Content-Length: %lu", (unsigned long) upload_data.len);
 
 	headers = curl_slist_append(headers, "Content-Type: application/json");
-	headers = curl_slist_append(headers, len_hdr);
-	headers = curl_slist_append(headers, auth_hdr);
+	if (!postfields) {
+		headers = curl_slist_append(headers, len_hdr);
+		headers = curl_slist_append(headers, auth_hdr);
+	}
 	headers = curl_slist_append(headers, "User-Agent: " USER_AGENT);
 	headers = curl_slist_append(headers, "Accept:"); /* disable Accept hdr*/
 	headers = curl_slist_append(headers, "Expect:"); /* disable Expect hdr*/
@@ -388,7 +403,7 @@ static json_value *rpc_curl_do_call(YAAMP_RPC *rpc, char const *data)
 
 	char url[1024];
 	int curl_err = 0;
-	snprintf(url, sizeof(url), "http%s://%s:%d", rpc->ssl?"s":"", rpc->host, rpc->port);
+	snprintf(url, sizeof(url), "http%s://%s:%d%s", rpc->ssl?"s":"", rpc->host, rpc->port, rpc->path);
 	strcpy(curl_last_err, "");
 
 	json_value *res = curl_json_rpc(rpc, url, data, &curl_err);

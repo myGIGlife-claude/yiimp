@@ -32,6 +32,15 @@ void cn_fast_hash(const void *data, size_t len, unsigned char hash[32]);
 // Monero tree hash of count hashes (count >= 1)
 void cn_tree_hash(const unsigned char (*hashes)[32], size_t count, unsigned char root[32]);
 
+// the tree hash from the first hash (the miner tx, that changes with the extranonce):
+// branch of the first hash (at most 64 hashes, returns the depth), and the root from it
+size_t cn_tree_branch0(const unsigned char (*hashes)[32], size_t count, unsigned char (*branch)[32]);
+void cn_tree_root_branch0(const unsigned char first[32], const unsigned char (*branch)[32], size_t depth,
+	unsigned char root[32]);
+
+// RandomX of the input with a fixed key (for hashtest and g_algos only, slow: light mode)
+void randomx_hash(const char *input, char *output, uint32_t len);
+
 // varints (7 bits per byte, little endian): the number of bytes read (0 on error)
 // or written
 int cn_varint_read(const unsigned char *p, size_t len, uint64_t *value);

@@ -178,6 +178,10 @@ YAAMP_ALGO g_algos[] =
 	{"quark", quark_hash, 1, 0, 0},
 	{"qubit", qubit_hash, 1, 0, 0},
 	{"rainforest", rainforest_hash, 1, 0, 0},
+	/* Monero and the CryptoNote coins (protocol_randomx.cpp): xmrig login/job/submit protocol,
+	 * the shares are hashed with the seed of the job; share difficulty = hashes, stored as is
+	 * (web: 2^10 hashrate constant for H/s) */
+	{"randomx", randomx_hash, 1, 0, 0},
 	{"sccpow", sccpow_hash, 1, 0, 0}, /* StakeCubeCoin (SCC), kawpow stratum protocol */
 	{"scrypt", scrypt_hash, 0x10000, 0, 0},
 	{"scryptn", scryptn_hash, 0x10000, 0, 0},
