@@ -261,9 +261,9 @@ function BackendCoinPayments($coin)
             }
             if ($amount_failed > 0.0) {
                 debuglog("Found failed payment(s) for {$user->username}, $amount_failed {$coin->symbol}!");
-                if ($coin->rpcencoding == 'DCR') {
+                if ($coin->rpcencoding == 'DCR' || $coin->rpcencoding == 'XMR') {
                     $data = $remote->validateaddress($user->username);
-                    if (!$data['isvalid']) {
+                    if (is_array($data) && !arraySafeVal($data, 'isvalid')) {
                         debuglog("Found bad address {$user->username}!! ($amount_failed {$coin->symbol})");
                         $user->is_locked = 1;
                         $user->save();

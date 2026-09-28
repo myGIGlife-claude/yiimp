@@ -926,7 +926,7 @@ static bool randomx_submit(YAAMP_CLIENT *client, json_value *params)
 	uint64_t top;
 	memcpy(&top, claimed + 24, 8);
 	if (top >= target) {
-		rx_reject(client, job, 23, "Low difficulty share", nonce);
+		rx_reject(client, job, 26, "Low difficulty share", nonce);
 		object_unlock(job);
 		return true;
 	}
@@ -948,7 +948,7 @@ static bool randomx_submit(YAAMP_CLIENT *client, json_value *params)
 		return true;
 	}
 	if (memcmp(hash, claimed, 32)) {
-		rx_reject(client, job, 20, "Invalid result", nonce);
+		rx_reject(client, job, 25, "Invalid result", nonce);
 		object_unlock(job);
 		return true;
 	}
@@ -968,6 +968,9 @@ static bool randomx_submit(YAAMP_CLIENT *client, json_value *params)
 
 	rx_send_result(client, "{\"status\":\"OK\"}");
 	protocol_share_record(client, job, true, nonce, share_diff, 0, NULL);
+	// the speed of the miner (job assignment, compared with coind_nethash) is in 2^32 hash
+	// units as for the other algos, share_add counted the difficulty in hashes
+	client->speed -= difficulty / g_current_algo->diff_multiplier * 42 * (1.0 - 1.0 / 4294967296.0);
 	object_unlock(job);
 	return true;
 }
