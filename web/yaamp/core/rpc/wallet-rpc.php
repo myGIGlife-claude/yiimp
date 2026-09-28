@@ -295,6 +295,7 @@ class WalletRPC {
 			$res = array(
 				'hash' => arraySafeVal($header, 'hash', $hash),
 				'height' => $height,
+				'version' => (int) arraySafeVal($header, 'major_version', 0),
 				'confirmations' => arraySafeVal($header, 'orphan_status') ? -1 : (int) arraySafeVal($header, 'depth') + 1,
 				'difficulty' => cryptonote_difficulty($header),
 				'nonce' => arraySafeVal($header, 'nonce', 0),
@@ -429,11 +430,15 @@ class WalletRPC {
 			if (!$t) return false;
 			$type = arraySafeVal($t, 'type');
 			$amount = arraySafeVal($t, 'amount', 0) / $units;
+			$address = arraySafeVal($t, 'address', '');
+			$destinations = arraySafeVal($t, 'destinations', array());
+			if ($type == 'out' && is_array($destinations) && count($destinations) == 1)
+				$address = arraySafeVal(reset($destinations), 'address', $address);
 			return array('txid' => $txid, 'amount' => $type == 'out' ? -$amount : $amount,
 				'fee' => arraySafeVal($t, 'fee', 0) / $units, 'confirmations' => arraySafeVal($t, 'confirmations', 0),
 				'time' => arraySafeVal($t, 'timestamp', 0),
 				'details' => array(array('category' => $type == 'out' ? 'send' : 'receive',
-					'address' => arraySafeVal($t, 'address', ''), 'amount' => $amount)));
+					'address' => $address, 'amount' => $amount)));
 		}
 		if (arraySafeVal($tx, 'in_pool')) return false;
 
