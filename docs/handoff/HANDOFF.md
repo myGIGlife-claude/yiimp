@@ -2,10 +2,31 @@
 
 Last updated: 2026-09-28 (Phase 3 finished on `claude/phase3`, PR open).
 
-> **Next session, first task:** the owner will test Monero payouts
-> (web cron -> monero-wallet-rpc `transfer_split`) with you next week.
-> Payouts ran once on regtest only (mature_time backdated in SQL), so treat
-> them as lightly tested. See `docs/BRIDGE.md` and the Phase 3 notes below.
+> **Next session, first task: a payout test for each algo family**, with the owner.
+> Payouts were the weak spot of the old YiiMP admin. So far only Monero has run
+> block -> confirmed -> earnings -> payout, once on regtest, with `earnings.mature_time`
+> backdated in SQL. For each coin below, on regtest, run the real web cron with no SQL
+> shortcuts: mine blocks through the stratum, let them mature, let the payout run send,
+> and check the miner's wallet got the right amount, `payouts` has the txid, and the
+> admin pages (coin, user, payouts) show it correctly.
+>
+> | Family | Test coin | What to watch |
+> |---|---|---|
+> | Bitcoin stratum (Phase 1 algos) | one Group A coin, e.g. RTM (ghostrider) or VTC (verthash) | normal `sendmany`; masternode coinbase on RTM |
+> | KawPoW | RVN | normal `sendmany`; FIRO masternode payouts are still untested (`protx register` failed on regtest) |
+> | Equihash | ZEC (zcashd 6.x), then BTG | check which wallet RPCs zcashd 6 still allows for transparent payouts (`sendmany` may be deprecated or disabled); reward read by `zcash_coinbase_miner_value` |
+> | Decred | DCR (dcrd + dcrwallet) | payouts go through dcrwallet `sendmany`; blocks confirmed by `blocknotify-dcr` |
+> | Monero | XMR | `transfer_split` through monero-wallet-rpc; locked-funds errors while rewards are still locked |
+>
+> Fix whatever breaks, as its own PR, and ask the owner before merging.
+> Also still untested: merge mining (Lyncoin), PoS coins (Pulsar), live mainnet.
+> See `docs/BRIDGE.md` and the Phase 3 notes below.
+>
+> **Idea for later, owner's request:** a "build a coin from its GitHub link" page in the
+> admin (read the repo, detect the algo, build the daemon in an isolated container,
+> configure it, add the coin disabled until synced). There's a clickable mockup of it and
+> of a redesigned front end and admin: https://claude.ai/artifact/MUkvezriwZ5KNB58qwAeeL.
+> Mockup only, nothing built yet.
 > Merge order: PRs #3, then #4, then the Phase 3 PR, and only when the owner says so. Written by the Claude Code session that did this
 work, so another session can continue where it stopped. Read it all before
 changing anything.
