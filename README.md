@@ -33,6 +33,10 @@ personalization can be set per stratum and per coin in the .conf (`equihash_n`, 
 `equihash_personalization`, `[EQUIHASH]` section), e.g. 48,5 for the zcashd regtest. Share
 difficulty 1 is 8192 solutions (target 0x0007ffff..): the web hashrate constant of the equihash
 algos is 2^23 (Sol/s) instead of 2^42.
+Daemon blocknotify: `blocknotify=/path/blocknotify 127.0.0.1:<stratum port> <coin id> %s` (the
+TCP port of the stratum of the coin's algo, e.g. 9600 for equihash). The daemons log
+`runCommand error: system(... blocknotify ...) returned 256` when that stratum is not listening
+(e.g. blocks made by `generate` before the stratum starts): harmless, blocknotify exits 1 then.
 
 Coins can be given their own stratum port with the *Dedicated Port* setting on the coin page;
 the old `multi-port` branch is no longer needed.
