@@ -1,97 +1,97 @@
 // Copyright (c) 2015-2017 YiiMP
 
-// Sample blocknotify wrapper tool compatible with decred notifications
-// will call the standard bin/blocknotify yiimp tool on new block event.
-
+// blocknotify wrapper for Decred: dcrd has no blocknotify option, so this tool
+// connects to the dcrd websocket RPC, registers for block notifications and
+// calls the standard bin/blocknotify yiimp tool for every connected block.
+//
 // Note: this tool is connected directly to dcrd, not to the wallet!
+//
+// The block id sent to the stratum is the BLAKE-256 hash of the header (the
+// usual Decred block hash); since DCP-0011 the proof of work hash is BLAKE3,
+// the stratum stores both.
+//
+// usage: blocknotify-dcr -stratum 127.0.0.1:3252 -coinid 1574 \
+//          -rpcuser user -rpcpass pass [-rpcserver 127.0.0.1:9109] [-rpccert rpc.cert | -notls]
 
 package main
 
 import (
-	"io/ioutil"
+	"bytes"
+	"context"
+	"flag"
 	"log"
+	"os"
 	"os/exec"
-	"path/filepath"
+	"os/signal"
+	"syscall"
 
-	"bytes" // dcrd > 0.6+
+	"github.com/decred/dcrd/rpcclient/v8"
 	"github.com/decred/dcrd/wire"
-
-	"github.com/decred/dcrrpcclient"
-//	"github.com/decred/dcrutil"
-)
-
-const (
-	processName = "blocknotify"    // set the full path if required
-	stratumDest = "yaamp.com:3252" // stratum host:port
-	coinId = "1574"                // decred database coin id
-
-	dcrdUser = "yiimprpc"
-	dcrdPass = "myDcrdPassword"
-
-	debug = false
 )
 
 func main() {
-	// Only override the handlers for notifications you care about.
-	// Also note most of these handlers will only be called if you register
-	// for notifications.  See the documentation of the dcrrpcclient
-	// NotificationHandlers type for more details about each handler.
-	ntfnHandlers := dcrrpcclient.NotificationHandlers{
+	processName := flag.String("blocknotify", "blocknotify", "yiimp blocknotify tool (full path if not in PATH)")
+	stratumDest := flag.String("stratum", "127.0.0.1:3252", "stratum host:port")
+	coinID := flag.String("coinid", "1574", "decred coin id in the yiimp database")
+	rpcServer := flag.String("rpcserver", "127.0.0.1:9109", "dcrd RPC host:port")
+	rpcUser := flag.String("rpcuser", "yiimprpc", "dcrd RPC user")
+	rpcPass := flag.String("rpcpass", "myDcrdPassword", "dcrd RPC password")
+	rpcCert := flag.String("rpccert", "rpc.cert", "dcrd RPC TLS certificate")
+	noTLS := flag.Bool("notls", false, "connect to dcrd without TLS (dcrd --notls)")
+	debug := flag.Bool("debug", false, "log every block")
+	flag.Parse()
 
+	ntfnHandlers := rpcclient.NotificationHandlers{
 		OnBlockConnected: func(blockHeader []byte, transactions [][]byte) {
-			// log.Printf("Block bytes: %v %v", blockHeader, transactions)
 			var bhead wire.BlockHeader
-			err := bhead.Deserialize(bytes.NewReader(blockHeader))
-			if err == nil {
-				str := bhead.BlockHash().String();
-				args := []string{ stratumDest, coinId, str }
-				out, err := exec.Command(processName, args...).Output()
-				if err != nil {
-					log.Printf("err %s", err)
-				} else if debug {
-					log.Printf("out %s", out)
-				}
-				if (debug) {
-					log.Printf("Block connected: %s", str)
-				}
+			if err := bhead.Deserialize(bytes.NewReader(blockHeader)); err != nil {
+				log.Printf("invalid block header: %v", err)
+				return
+			}
+			str := bhead.BlockHash().String()
+			args := []string{*stratumDest, *coinID, str}
+			out, err := exec.Command(*processName, args...).CombinedOutput()
+			if err != nil {
+				log.Printf("%s %v: %v %s", *processName, args, err, out)
+			} else if *debug {
+				log.Printf("block %d connected: %s %s", bhead.Height, str, out)
 			}
 		},
-
 	}
 
-	// Connect to local dcrd RPC server using websockets.
-	// dcrdHomeDir := dcrutil.AppDataDir("dcrd", false)
-	// folder := dcrdHomeDir
-	folder := ""
-	certs, err := ioutil.ReadFile(filepath.Join(folder, "rpc.cert"))
-	if err != nil {
-		certs = nil
-		log.Printf("%s, trying without TLS...", err)
+	var certs []byte
+	if !*noTLS {
+		var err error
+		certs, err = os.ReadFile(*rpcCert)
+		if err != nil {
+			log.Fatalf("%v (use -notls if dcrd runs with --notls)", err)
+		}
 	}
 
-	connCfg := &dcrrpcclient.ConnConfig{
-		Host:         "127.0.0.1:9109",
-		Endpoint:     "ws", // websocket
-
-		User:         dcrdUser,
-		Pass:         dcrdPass,
-
-		DisableTLS: (certs == nil),
+	connCfg := &rpcclient.ConnConfig{
+		Host:         *rpcServer,
+		Endpoint:     "ws",
+		User:         *rpcUser,
+		Pass:         *rpcPass,
+		DisableTLS:   *noTLS,
 		Certificates: certs,
 	}
 
-	client, err := dcrrpcclient.New(connCfg, &ntfnHandlers)
+	client, err := rpcclient.New(connCfg, &ntfnHandlers)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	// Register for block connect and disconnect notifications.
-	if err := client.NotifyBlocks(); err != nil {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	// Register for block connect notifications (re-registered on reconnect).
+	if err := client.NotifyBlocks(ctx); err != nil {
 		log.Fatalln(err)
 	}
 	log.Println("NotifyBlocks: Registration Complete")
 
-	// Wait until the client either shuts down gracefully (or the user
-	// terminates the process with Ctrl+C).
+	<-ctx.Done()
+	client.Shutdown()
 	client.WaitForShutdown()
 }

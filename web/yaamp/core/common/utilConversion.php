@@ -3,6 +3,8 @@
 function round_difficulty($diff)
 {
 	// only keep 8/9 significant numbers
+	$diff = (float) $diff;
+	if ($diff <= 0) return 0;
 	$sigdigits = 8;
 	return round($diff, (int) ceil(0 - log10($diff)) + $sigdigits);
 }
@@ -356,4 +358,56 @@ function formatWalletVersion($coin)
 		$version = ltrim($version, 'v');
 	}
 	return $version;
+}
+
+// Largest transparent output (in satoshis) of a Zcash-family coinbase
+// transaction (v1-v4 and v5/NU5), i.e. the miner's part of the block reward
+// when the daemon builds the coinbase (getblocktemplate "coinbasetxn").
+// Returns 0 if the transaction can't be parsed.
+function zcash_coinbase_miner_value($hex)
+{
+	if (!is_string($hex) || strlen($hex) < 20 || strlen($hex) % 2 || !ctype_xdigit($hex)) return 0;
+	$tx = hex2bin($hex);
+	$len = strlen($tx);
+	$pos = 0;
+
+	$read = function ($n) use ($tx, $len, &$pos) {
+		if ($pos + $n > $len) throw new Exception('short tx');
+		$s = substr($tx, $pos, $n);
+		$pos += $n;
+		return $s;
+	};
+	$compact = function () use ($read) {
+		$b = ord($read(1));
+		if ($b < 0xfd) return $b;
+		if ($b == 0xfd) return unpack('v', $read(2))[1];
+		if ($b == 0xfe) return unpack('V', $read(4))[1];
+		return unpack('P', $read(8))[1];
+	};
+
+	try {
+		$header = unpack('V', $read(4))[1];
+		$overwintered = ($header & 0x80000000) != 0;
+		$version = $header & 0x7fffffff;
+		if ($overwintered) $read(4); // nVersionGroupId
+		if ($overwintered && $version >= 5) $read(12); // consensus branch id, lock time, expiry height
+
+		$nin = $compact();
+		for ($i = 0; $i < $nin; $i++) {
+			$read(36);
+			$read($compact());
+			$read(4);
+		}
+
+		$best = 0;
+		$nout = $compact();
+		for ($i = 0; $i < $nout; $i++) {
+			$value = unpack('P', $read(8))[1];
+			$read($compact());
+			if ($value > $best) $best = $value;
+		}
+		return $best;
+	} catch (Exception $e) {
+		return 0;
+	}
 }

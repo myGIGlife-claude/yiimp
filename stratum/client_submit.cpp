@@ -39,6 +39,12 @@ void build_submit_values(YAAMP_JOB_VALUES *submitvalues, YAAMP_JOB_TEMPLATE *tem
 		snprintf(submitvalues->header, sizeof(submitvalues->header), "%s%s%s%s%s%s%s", templ->version, templ->prevhash_be, submitvalues->merkleroot_be,
 			templ->claim_be, ntime, templ->nbits, nonce);
 		ser_string_be(submitvalues->header, submitvalues->header_be, 112/4);
+	} else if (!strcmp(g_stratum_algo, "yespowerRES")) {
+		// Resistance: Zcash style 140 byte header, hashFinalSaplingRoot after the merkle root
+		// and a 256 bit nonce whose first 32 bits are the stratum nonce (protocol_equihash.cpp)
+		snprintf(submitvalues->header, sizeof(submitvalues->header), "%s%s%s%s%s%s%s%056x", templ->version, templ->prevhash_be,
+			submitvalues->merkleroot_be, templ->extradata_be, ntime, templ->nbits, nonce, 0);
+		ser_string_be(submitvalues->header, submitvalues->header_be, 35);
 	} else if (strlen(templ->extradata_be) == 128) { // LUX SC
 		snprintf(submitvalues->header, sizeof(submitvalues->header), "%s%s%s%s%s%s%s", templ->version, templ->prevhash_be, submitvalues->merkleroot_be,
 			ntime, templ->nbits, nonce, templ->extradata_be);
@@ -69,78 +75,25 @@ void build_submit_values(YAAMP_JOB_VALUES *submitvalues, YAAMP_JOB_TEMPLATE *tem
 
 /////////////////////////////////////////////
 
-static void create_decred_header(YAAMP_JOB_TEMPLATE *templ, YAAMP_JOB_VALUES *out,
-	const char *ntime, const char *nonce, const char *nonce2, const char *vote, bool usegetwork)
-{
-	struct __attribute__((__packed__)) {
-		uint32_t version;
-		char prevblock[32];
-		char merkleroot[32];
-		char stakeroot[32];
-		uint16_t votebits;
-		char finalstate[6];
-		uint16_t voters;
-		uint8_t freshstake;
-		uint8_t revoc;
-		uint32_t poolsize;
-		uint32_t nbits;
-		uint64_t sbits;
-		uint32_t height;
-		uint32_t size;
-		uint32_t ntime;
-		uint32_t nonce;
-		unsigned char extra[32];
-		uint32_t stakever;
-		uint32_t hashtag[3];
-	} header;
-
-	memcpy(&header, templ->header, sizeof(header));
-
-	memset(header.extra, 0, 32);
-	sscanf(nonce, "%08x", &header.nonce);
-
-	if (strcmp(vote, "")) {
-		uint16_t votebits = 0;
-		sscanf(vote, "%04hx", &votebits);
-		header.votebits = (header.votebits & 1) | (votebits & 0xfffe);
-	}
-
-	binlify(header.extra, nonce2);
-
-	hexlify(out->header, (const unsigned char*) &header, 180);
-	memcpy(out->header_bin, &header, sizeof(header));
-}
-
+// Decred (dcrpool / gominer stratum): the header comes from getwork, the
+// miner sets the time, the nonce and extradata[4..8] (extranonce2), the
+// pool extradata[0..4] (extranonce1); all as serialized (little endian hex)
 static void build_submit_values_decred(YAAMP_JOB_VALUES *submitvalues, YAAMP_JOB_TEMPLATE *templ,
-	const char *nonce1, const char *nonce2, const char *ntime, const char *nonce, const char *vote, bool usegetwork)
+	const char *nonce1, const char *nonce2, const char *ntime, const char *nonce)
 {
-	if (!usegetwork) {
-		// not used yet
-		char doublehash[128] = { 0 };
+	unsigned char *hdr = submitvalues->header_bin;
 
-		snprintf(submitvalues->coinbase, sizeof(submitvalues->coinbase), "%s%s%s%s", templ->coinb1, nonce1, nonce2, templ->coinb2);
-		int coinbase_len = strlen(submitvalues->coinbase);
+	memcpy(hdr, templ->header, DECRED_HEADER_SIZE);
+	memset(&hdr[DECRED_EXTRANONCE_OFFSET], 0, 32);
+	binlify(&hdr[136], ntime);
+	binlify(&hdr[140], nonce);
+	binlify(&hdr[DECRED_EXTRANONCE_OFFSET], nonce1);
+	binlify(&hdr[DECRED_EXTRANONCE_OFFSET + strlen(nonce1)/2], nonce2);
 
-		unsigned char coinbase_bin[sizeof(submitvalues->coinbase)/2 + 1];
-		memset(coinbase_bin, 0, sizeof(coinbase_bin));
-		binlify(coinbase_bin, submitvalues->coinbase);
+	hexlify(submitvalues->header, hdr, DECRED_HEADER_SIZE);
 
-		YAAMP_HASH_FUNCTION merkle_hash = sha256_double_hash_hex;
-		if (g_current_algo->merkle_func)
-			merkle_hash = g_current_algo->merkle_func;
-		merkle_hash((char *)coinbase_bin, doublehash, coinbase_len/2);
-
-		string merkleroot = merkle_with_first(templ->txsteps, doublehash);
-		ser_string_be(merkleroot.c_str(), submitvalues->merkleroot_be, 8);
-
-#ifdef MERKLE_DEBUGLOG
-		printf("merkle root %s\n", merkleroot.c_str());
-#endif
-	}
-	create_decred_header(templ, submitvalues, ntime, nonce, nonce2, vote, usegetwork);
-
-	int header_len = strlen(submitvalues->header)/2;
-	g_current_algo->hash_function((char *)submitvalues->header_bin, (char *)submitvalues->hash_bin, header_len);
+	// proof of work: BLAKE3 (decred algo)
+	g_current_algo->hash_function((char *)hdr, (char *)submitvalues->hash_bin, DECRED_HEADER_SIZE);
 
 	hexlify(submitvalues->hash_hex, submitvalues->hash_bin, 32);
 	string_be(submitvalues->hash_hex, submitvalues->hash_be);
@@ -260,13 +213,11 @@ static void client_do_submit(YAAMP_CLIENT *client, YAAMP_JOB *job, YAAMP_JOB_VAL
 			strcat(block_hex, "00");
 
 		if(!strcmp("DCR", coind->rpcencoding)) {
-			// submit the regenerated block header
-			char hex[384];
-			hexlify(hex, submitvalues->header_bin, 180);
-			if (coind->usegetwork)
-				snprintf(block_hex, block_size, "%s8000000100000000000005a0", hex);
-			else
-				snprintf(block_hex, block_size, "%s", hex);
+			// getwork submission: the solved header and the BLAKE3 padding (zeros)
+			unsigned char work[DECRED_GETWORK_SIZE];
+			memset(work, 0, sizeof(work));
+			memcpy(work, submitvalues->header_bin, DECRED_HEADER_SIZE);
+			hexlify(block_hex, work, DECRED_GETWORK_SIZE);
 		}
 
 		bool b = coind_submit(coind, block_hex);
@@ -310,9 +261,13 @@ static void client_do_submit(YAAMP_CLIENT *client, YAAMP_JOB *job, YAAMP_JOB_VAL
 				string_be(doublehash2, hash1);
 			}
 
-			if(coind->usegetwork && !strcmp("DCR", coind->rpcencoding)) {
-				// no merkle stuff
-				strcpy(hash1, submitvalues->hash_hex);
+			if(!strcmp("DCR", coind->rpcencoding)) {
+				// the block id is BLAKE-256 of the header, not the BLAKE3 pow hash
+				unsigned char blockid[32];
+				decred_block_hash((char *)submitvalues->header_bin, (char *)blockid, DECRED_HEADER_SIZE);
+				hexlify(doublehash2, blockid, 32);
+				string_be(doublehash2, hash1);
+				hash1[64] = '\0';
 			}
 
 			block_add(client->userid, client->workerid, coind->id, templ->height,
@@ -326,6 +281,9 @@ static void client_do_submit(YAAMP_CLIENT *client, YAAMP_JOB *job, YAAMP_JOB_VAL
 
 			if(!strcmp(coind->lastnotifyhash,submitvalues->hash_be)) {
 				block_confirm(coind->id, submitvalues->hash_be);
+			}
+			else if(!strcmp("DCR", coind->rpcencoding) && !strcmp(coind->lastnotifyhash, hash1)) {
+				block_confirm(coind->id, hash1);
 			}
 
 			if (g_debuglog_hash) {
@@ -464,8 +422,22 @@ bool client_submit(YAAMP_CLIENT *client, json_value *json_params)
 			client_submit_error(client, job, 23, "Invalid ntime", extranonce2, ntime, nonce);
 			return true;
 		}
+		if (is_decred) {
+			// gominer rolls the time (little endian): allow it forward, up to
+			// a few minutes after now (dcrd allows 2 hours in the future)
+			unsigned char t[4], t0[4];
+			binlify(t, ntime);
+			binlify(t0, templ->ntime);
+			uint32_t tsub = t[0] | (t[1] << 8) | (t[2] << 16) | ((uint32_t) t[3] << 24);
+			uint32_t tjob = t0[0] | (t0[1] << 8) | (t0[2] << 16) | ((uint32_t) t0[3] << 24);
+			uint32_t tmax = max((uint32_t) time(NULL), tjob) + 600;
+			if (tsub < tjob || tsub > tmax) {
+				client_submit_error(client, job, 23, "Invalid ntime", extranonce2, ntime, nonce);
+				return true;
+			}
+		}
 		// dont allow algos permutations change over time (can lead to different speeds)
-		if (!g_allow_rolltime) {
+		else if (!g_allow_rolltime) {
 			client_submit_error(client, job, 23, "Invalid ntime (rolling not allowed)", extranonce2, ntime, nonce);
 			return true;
 		}
@@ -490,41 +462,13 @@ bool client_submit(YAAMP_CLIENT *client, json_value *json_params)
 		return true;
 	}
 
-	// check if the submitted extranonce is valid
-	if(is_decred && client->extranonce2size > 4) {
-		char extra1_id[16], extra2_id[16];
-		int cmpoft = client->extranonce2size*2 - 8;
-		strcpy(extra1_id, &client->extranonce1[cmpoft]);
-		strcpy(extra2_id, &extranonce2[cmpoft]);
-		int extradiff = (int) strcmp(extra2_id, extra1_id);
-		int extranull = (int) !strcmp(extra2_id, "00000000");
-		if (extranull && client->extranonce2size > 8)
-			extranull = (int) !strcmp(&extranonce2[8], "00000000" "00000000");
-		if (extranull) {
-			debuglog("extranonce %s is empty!, should be %s - %s\n", extranonce2, extra1_id, client->sock->ip);
-			client_submit_error(client, job, 27, "Invalid extranonce2 suffix", extranonce2, ntime, nonce);
-			return true;
-		}
-		if (extradiff) {
-			// some ccminer pre-release doesn't fill correctly the extranonce
-			client_submit_error(client, job, 27, "Invalid extranonce2 suffix", extranonce2, ntime, nonce);
-			socket_send(client->sock, "{\"id\":null,\"method\":\"mining.set_extranonce\",\"params\":[\"%s\",%d]}\n",
-				client->extranonce1, client->extranonce2size);
-			return true;
-		}
-	}
-	else if(!ishexa(extranonce2, client->extranonce2size*2)) {
-		client_submit_error(client, job, 27, "Invalid nonce2", extranonce2, ntime, nonce);
-		return true;
-	}
-
 	///////////////////////////////////////////////////////////////////////////////////////////
 
 	YAAMP_JOB_VALUES submitvalues;
 	memset(&submitvalues, 0, sizeof(submitvalues));
 
 	if(is_decred)
-		build_submit_values_decred(&submitvalues, templ, client->extranonce1, extranonce2, ntime, nonce, vote, true);
+		build_submit_values_decred(&submitvalues, templ, client->extranonce1, extranonce2, ntime, nonce);
 	else
 		build_submit_values(&submitvalues, templ, client->extranonce1, extranonce2, ntime, nonce);
 

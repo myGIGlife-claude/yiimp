@@ -25,10 +25,18 @@ bool coind_submitwork(YAAMP_COIND *coind, const char *block)
 		return false;
 	}
 
+	json_value *json_error = json_get_object(json, "error");
+	if(json_error && json_error->type != json_null)
+	{
+		const char *p = json_get_string(json_error, "message");
+		if(p) stratumlog("ERROR %s getwork submit: %s\n", coind->name, p);
+	}
+
+	// dcrd answers false when the block is rejected, the reason is in its log
 	json_value *json_res = json_get_object(json, "result");
 
 	bool b = json_res && json_res->type == json_boolean && json_res->u.boolean;
-	json_value_free(json_res);
+	json_value_free(json);
 
 	return b;
 }

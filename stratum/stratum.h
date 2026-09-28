@@ -133,6 +133,7 @@ extern volatile bool g_exiting;
 #include "coind.h"
 #include "remote.h"
 #include "share.h"
+#include "protocol.h"
 
 extern YAAMP_DB *g_db;
 extern YAAMP_ALGO g_algos[];
@@ -168,6 +169,7 @@ void sha3d_hash_hex(const char *input, char *output, unsigned int len);
 #include "algos/bcd.h"
 #include "algos/bitcore.h"
 #include "algos/blake.h"
+#include "algos/blake3hash.h"
 #include "algos/blake2b.h"
 #include "algos/blake2s.h"
 #include "algos/blakecoin.h"
@@ -248,3 +250,4 @@ void sha3d_hash_hex(const char *input, char *output, unsigned int len);
 #include "algos/zr5.h"
 #include "algos/ghostrider.h"
 #include "algos/flex.h"
+#include "algos/progpow/progpow.h"

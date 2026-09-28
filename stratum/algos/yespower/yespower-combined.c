@@ -1322,6 +1322,12 @@ void yespowerR16_hash(const char *input, char *output, uint32_t len)
 	yespower_generic(input, output, len, YESPOWER_1_0, 4096, 16, NULL, 0, 0);
 }
 
+/* Resistance (RES): hashes its 140 byte (Zcash style) block header */
+void yespowerRES_hash(const char *input, char *output, uint32_t len)
+{
+	yespower_generic(input, output, len, YESPOWER_1_0, 4096, 32, NULL, 0, 0);
+}
+
 void yespowerTIDE_hash(const char *input, char *output, uint32_t len)
 {
 	yespower_generic(input, output, len, YESPOWER_1_0, 2048, 8, NULL, 0, 0);

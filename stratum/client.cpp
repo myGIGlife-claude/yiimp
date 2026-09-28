@@ -57,13 +57,8 @@ bool client_subscribe(YAAMP_CLIENT *client, json_value *json_params)
 	strcpy(client->extranonce1, client->extranonce1_default);
 	client->extranonce2size = client->extranonce2size_default;
 
-	// decred uses an extradata field in block header, 2 first uint32 are set by the miner
-	if (g_current_algo->name && !strcmp(g_current_algo->name,"decred")) {
-		memset(client->extranonce1, '0', sizeof(client->extranonce1));
-		memcpy(&client->extranonce1[16], client->extranonce1_default, YAAMP_EXTRANONCE2_SIZE*2);
-		client->extranonce1[24] = '\0';
-		client->extranonce2size = client->extranonce2size_default = 12;
-	}
+	// decred: extranonce1 (4 bytes) and extranonce2 (4 bytes) are the first
+	// 8 bytes of the header extradata field, the defaults fit (gominer)
 
 	get_random_key(client->notify_id);
 
@@ -139,6 +134,10 @@ bool client_subscribe(YAAMP_CLIENT *client, json_value *json_params)
 			}
 		}
 	}
+
+	// other stratum protocols (protocol.h) answer with their own format
+	if (g_protocol && g_protocol->subscribe)
+		return g_protocol->subscribe(client, json_params);
 
 	strcpy(client->extranonce1_last, client->extranonce1);
 	client->extranonce2size_last = client->extranonce2size;
@@ -625,7 +624,8 @@ void *client_thread(void *p)
 			b = client_send_result(client, "\"pong\"");
 
 		else if(!strcmp(method, "mining.submit"))
-			b = client_submit(client, json_params);
+			b = (g_protocol && g_protocol->submit) ?
+				g_protocol->submit(client, json_params) : client_submit(client, json_params);
 
 		else if(!strcmp(method, "mining.suggest_difficulty"))
 			b = client_suggest_difficulty(client, json_params);
@@ -652,6 +652,9 @@ void *client_thread(void *p)
 		{
 			clientlog(client, "using getwork"); // client using http:// url
 		}
+		else if(g_protocol && g_protocol->method && g_protocol->method(client, method, json_params, &b))
+			; // handled by the stratum protocol of the algo
+
 		else
 		{
 			b = client_send_error(client, 20, "Not supported");

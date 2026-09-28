@@ -126,6 +126,9 @@ function BackendCoinsUpdate()
         // Change for segwit
         if ($coin->usesegwit) {
             $template = $remote->getblocktemplate('{"rules":["segwit"]}');
+            // Litecoin Core 0.21.2+ (MWEB) also requires the mweb rule
+            if (!$template && stripos((string) $remote->error, 'mweb') !== false)
+                $template = $remote->getblocktemplate('{"rules":["mweb","segwit"]}');
         } else {
             $template = $remote->getblocktemplate('{}');
         }
@@ -195,15 +198,28 @@ function BackendCoinsUpdate()
             }
         }
 
-        else if ($coin->symbol == 'ZEC' || $coin->rpcencoding == 'ZEC') {
+        else if ($coin->symbol == 'ZEC' || $coin->rpcencoding == 'ZEC' || ($template && isset($template['coinbasetxn']))) {
+            // Zcash family (ZEC, KMD, ARRR, BTCZ, ZCL, YEC, RES...): no
+            // coinbasevalue, the daemon builds the coinbase (coinbasetxn)
             if ($template && isset($template['coinbasetxn'])) {
-                // no coinbasevalue in ZEC blocktemplate :/
-                $txn                  = $template['coinbasetxn'];
-                $coin->charity_amount = arraySafeVal($txn, 'foundersreward', 0) / 100000000;
-                $coin->reward         = $coin->charity_amount * 4 + arraySafeVal($txn, 'fee', 0) / 100000000;
-                // getmininginfo show current diff, getinfo the last block one
-                $mininginfo           = $remote->getmininginfo();
-                $coin->difficulty     = ArraySafeVal($mininginfo, 'difficulty', $coin->difficulty);
+                $txn    = $template['coinbasetxn'];
+                $miner  = zcash_coinbase_miner_value(arraySafeVal($txn, 'data', ''));
+                if ($miner > 0) {
+                    // the largest transparent output is the miner's; the others are
+                    // the founders reward / funding streams
+                    $coin->reward = $miner / 100000000 * $coin->reward_mul;
+                } else {
+                    $coin->charity_amount = arraySafeVal($txn, 'foundersreward', 0) / 100000000;
+                    $coin->reward         = $coin->charity_amount * 4 + arraySafeVal($txn, 'fee', 0) / 100000000;
+                }
+                // difficulty in Bitcoin units (the daemons' own difficulty is relative
+                // to the Equihash powLimit), like the other coins and the stratum
+                if (isset($template['bits']))
+                    $coin->difficulty = target_to_diff(decode_compact($template['bits']));
+                else {
+                    $mininginfo       = $remote->getmininginfo();
+                    $coin->difficulty = ArraySafeVal($mininginfo, 'difficulty', $coin->difficulty);
+                }
                 //$target = decode_compact($template['bits']);
                 //$diff = target_to_diff($target); // seems not standard 0.358557563 vs 187989.937 in getmininginfo
                 //target 00000002c0930000000000000000000000000000000000000000000000000000 => 0.358557563 (bits 1d02c093)

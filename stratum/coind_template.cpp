@@ -115,53 +115,52 @@ YAAMP_JOB_TEMPLATE *coind_create_template_memorypool(YAAMP_COIND *coind)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static int decred_parse_header(YAAMP_JOB_TEMPLATE *templ, const char *header_hex, bool getwork)
+// Decred: dcrd has no getblocktemplate, the work comes from getwork: the
+// serialized 180-byte block header followed by 12 bytes of padding (BLAKE3,
+// DCP-0011), all fields little endian, no word swapping:
+//
+//   0 version   4 prevblock   36 merkleroot   68 stakeroot   100 votebits
+//   102 finalstate   108 voters   110 freshstake   111 revocations
+//   112 poolsize   116 bits   120 sbits   128 height   132 size
+//   136 timestamp   140 nonce   144 extradata (32)   176 stakeversion
+//
+// The pool fills extradata[0..4] with extranonce1 and the miner extradata[4..8]
+// with extranonce2 (dcrpool / gominer stratum), so no coinbase is built: the
+// block reward goes to the dcrd --miningaddr.
+static bool decred_parse_header(YAAMP_JOB_TEMPLATE *templ, const char *header_hex)
 {
-	struct __attribute__((__packed__)) {
-		uint32_t version;
-		char prevblock[32];
-		char merkleroot[32];
-		char stakeroot[32];
-		uint16_t votebits;
-		char finalstate[6];
-		uint16_t voters;
-		uint8_t freshstake;
-		uint8_t revoc;
-		uint32_t poolsize;
-		uint32_t nbits;
-		uint64_t sbits;
-		uint32_t height;
-		uint32_t size;
-		uint32_t ntime;
-		uint32_t nonce;
-		unsigned char extra[32];
-		uint32_t stakever;
-		uint32_t hashtag[3];
-	} header;
+	if (strlen(header_hex) < DECRED_HEADER_SIZE*2 || !ishexa((char *) header_hex, DECRED_HEADER_SIZE*2))
+		return false;
 
-	//debuglog("HEADER: %s\n", header_hex);
+	unsigned char *hdr = (unsigned char *) templ->header;
+	char hex[DECRED_HEADER_SIZE*2+1];
+	memcpy(hex, header_hex, DECRED_HEADER_SIZE*2);
+	hex[DECRED_HEADER_SIZE*2] = '\0';
+	string_lower(hex);
+	binlify(hdr, hex);
 
-	binlify((unsigned char*) &header, header_hex);
+	// the extranonces are set by the pool and the miner
+	memset(&hdr[DECRED_EXTRANONCE_OFFSET], 0, 32);
 
-	templ->height = header.height;
-	// reversed to tell its not a normal stratum coinbase
-	sprintf(templ->version, "%08x", getwork ? bswap32(header.version) : header.version);
-	sprintf(templ->ntime, "%08x", header.ntime);
-	sprintf(templ->nbits, "%08x", header.nbits);
+	uint32_t nbits, height;
+	memcpy(&nbits, &hdr[116], 4);
+	memcpy(&height, &hdr[128], 4);
 
+	templ->height = height;
+	sprintf(templ->nbits, "%08x", nbits);          // numeric, for decode_compact()
+	hexlify(templ->version, &hdr[0], 4);           // as serialized (little endian)
+	hexlify(templ->ntime, &hdr[136], 4);           // as serialized, like the miners submit it
+	hexlify(templ->prevhash_be, &hdr[4], 32);      // as serialized, sent in mining.notify
+	string_be(templ->prevhash_be, templ->prevhash_hex); // displayed block hash
 	templ->prevhash_hex[64] = '\0';
-	uint32_t* prev32 = (uint32_t*) header.prevblock;
-	for(int i=0; i < 8; i++)
-		sprintf(&templ->prevhash_hex[i*8], "%08x", getwork ? prev32[7-i] : bswap32(prev32[7-i]));
-	ser_string_be2(templ->prevhash_hex, templ->prevhash_be, 8);
 
-	// store all other stuff
-	memcpy(templ->header, &header, sizeof(header));
+	// mining.notify "coinb1": the header after the previous block hash
+	hexlify(templ->coinb1, &hdr[36], DECRED_HEADER_SIZE - 36);
+	templ->coinb2[0] = '\0';
 
-	return 0;
+	return true;
 }
 
-// decred getwork over stratum
 static YAAMP_JOB_TEMPLATE *decred_create_worktemplate(YAAMP_COIND *coind)
 {
 	char rpc_error[1024] = { 0 };
@@ -183,25 +182,27 @@ retry:
 	json_value *gwr = json_get_object(gw, "result");
 	if(!gwr) {
 		debuglog("%s no getwork json result!\n", coind->symbol);
+		json_value_free(gw);
 		return NULL;
 	}
 	else if (json_is_null(gwr)) {
 		json_value *jr = json_get_object(gw, "error");
-		if (!jr || json_is_null(jr)) return NULL;
-		const char *err = json_get_string(jr, "message");
-		if (err && !strcmp(err, "internal error")) {
-			usleep(500*YAAMP_MS); // not enough voters (testnet)
+		const char *err = (jr && !json_is_null(jr)) ? json_get_string(jr, "message") : NULL;
+		if (err && (!strcmp(err, "internal error") || strstr(err, "no work is available"))) {
+			usleep(500*YAAMP_MS); // not enough voters yet (testnet), reorg
 			if (--retry_cnt > 0) {
+				json_value_free(gw);
 				goto retry;
 			}
-			debuglog("%s getwork failed after %d tries: %s\n",
-				coind->symbol, GETWORK_RETRY_MAX, err);
 		}
+		if (err) debuglog("%s getwork failed: %s\n", coind->symbol, err);
+		json_value_free(gw);
 		return NULL;
 	}
 	const char *header_hex = json_get_string(gwr, "data");
 	if (!header_hex || !strlen(header_hex)) {
 		debuglog("%s no getwork data!\n", coind->symbol);
+		json_value_free(gw);
 		return NULL;
 	}
 
@@ -210,15 +211,15 @@ retry:
 
 	templ->created = time(NULL);
 
-	decred_parse_header(templ, header_hex, true);
+	bool ok = decred_parse_header(templ, header_hex);
 	json_value_free(gw);
+	if (!ok) {
+		stratumlog("%s invalid getwork data (%d chars)\n", coind->symbol, (int) strlen(header_hex));
+		delete templ;
+		return NULL;
+	}
 
-	// bypass coinbase and merkle for now... send without nonce/extradata
-	const unsigned char *hdr = (unsigned char *) &templ->header[36];
-	hexlify(templ->coinb1, hdr, 192 - 80);
-	const unsigned char *sfx = (unsigned char *) &templ->header[176];
-	hexlify(templ->coinb2, sfx, 180 - 176); // stake version
-
+	// no coinbase/merkle for decred, the header is sent as is
 	vector<string> txhashes;
 	txhashes.push_back("");
 
@@ -228,22 +229,6 @@ retry:
 	txhashes.clear();
 
 	return templ;
-}
-
-// for future decred real stratum
-static void decred_fix_template(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *json)
-{
-	const char *header_hex = json_get_string(json, "header");
-	if (!header_hex || !strlen(header_hex)) {
-		stratumlog("decred error, no block header in json!\n");
-		return;
-	}
-
-	// todo ?
-	//  "mintime": 1455511962,
-	//  "maxtime": 1455522081,
-
-	decred_parse_header(templ, header_hex, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -409,10 +394,6 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 		ser_string_be2(sc_utxo, &templ->extradata_be[64], 8);
 	}
 
-	if (strcmp(coind->rpcencoding, "DCR") == 0) {
-		decred_fix_template(coind, templ, json_result);
-	}
-
 	if (!templ->height || !templ->nbits || !strlen(templ->prevhash_hex)) {
 		stratumlog("%s warning, gbt incorrect : version=%s height=%d value=%lld bits=%s time=%s prev=%s\n",
 			coind->symbol, templ->version, templ->height, (long long) templ->value, templ->nbits, templ->ntime, templ->prevhash_hex);
@@ -560,8 +541,18 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 		coind_aux_build_auxs(templ);
 
 	coinbase_create(coind, templ, json_result);
-	json_value_free(json);
 
+	// other stratum protocols (protocol.h): per job data (header hash...)
+	if(g_protocol && g_protocol->template_prepare && !g_protocol->template_prepare(coind, templ, json_result))
+	{
+		json_value_free(json);
+		templ->txsteps.clear();
+		templ->txdata.clear();
+		delete templ;
+		return NULL;
+	}
+
+	json_value_free(json);
 	return templ;
 }
 
@@ -578,7 +569,7 @@ bool coind_create_job(YAAMP_COIND *coind, bool force)
 
 	YAAMP_JOB_TEMPLATE *templ;
 
-	// DCR gbt block header is not compatible with getwork submit, so...
+	// DCR: dcrd only provides getwork
 
 	if (coind->usegetwork && strcmp(coind->rpcencoding, "DCR") == 0)
 		templ = decred_create_worktemplate(coind);

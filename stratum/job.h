@@ -1,6 +1,11 @@
 
 #define MAX_AUXS	32
 
+// Decred block header (see coind_template.cpp)
+#define DECRED_HEADER_SIZE		180
+#define DECRED_GETWORK_SIZE		192	// header + BLAKE3 padding (zeros)
+#define DECRED_EXTRANONCE_OFFSET	144	// extradata: extranonce1, extranonce2
+
 class YAAMP_REMOTE;
 class YAAMP_COIND;
 class YAAMP_COIND_AUX;
@@ -68,6 +73,16 @@ struct YAAMP_JOB_TEMPLATE
 	
 	bool needpriceinfo;
 	char priceinfo[1024];	
+
+	// non Bitcoin stratum protocols (protocol.h): per job data set by template_prepare()
+	char proto_header[512];         // serialized header part hashed by the protocol (hex)
+	char proto_coinbase[8*1024+64]; // complete coinbase (hex)
+	char proto_hash[80];            // kawpow: header hash sent to the miners
+	char proto_seed[80];            // kawpow: epoch seed hash
+	char proto_target[80];          // block target, 64 hex digits (big endian)
+	char proto_notify[640];         // equihash: the header fields of mining.notify (JSON strings)
+	int eq_n, eq_k;                 // equihash: parameters of the template
+	char eq_pers[16];               // equihash: first 8 bytes of the BLAKE2b personalization
 };
 
 #define YAAMP_JOB_MAXSUBIDS		200

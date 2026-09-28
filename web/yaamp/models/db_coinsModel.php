@@ -12,6 +12,20 @@ class db_coins extends CActiveRecord
 		return 'coins';
 	}
 
+	// Numeric columns that are NULL until the backend first fills them (e.g. the
+	// price of a newly added coin). PHP 8 throws a TypeError on arithmetic with
+	// null (PHP 7 used 0), which broke pages such as the admin coin page.
+	protected function afterFind()
+	{
+		foreach (array('balance', 'immature', 'cleared', 'available', 'stake', 'mint',
+			'price', 'price2', 'difficulty', 'difficulty_pos', 'network_hash',
+			'charity_amount', 'charity_percent', 'txfee', 'index_avg') as $field) {
+			if ($this->$field === null)
+				$this->$field = 0;
+		}
+		parent::afterFind();
+	}
+
 	public function rules()
 	{
 		return array(

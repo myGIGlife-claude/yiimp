@@ -190,6 +190,13 @@ void coind_init(YAAMP_COIND *coind)
 	bool valid = coind_validate_address(coind);
 	if(valid) return;
 
+	if(coind->usegetwork) {
+		// DCR: the block reward goes to the dcrd --miningaddr, the stratum
+		// does not build any coinbase, keep the configured address
+		stratumlog("%s: set dcrd --miningaddr to the pool wallet %s\n", coind->symbol, coind->wallet);
+		return;
+	}
+
 	sprintf(params, "[\"legacy\"]");
 
 	json_value *json = rpc_call(&coind->rpc, "getrawchangeaddress", params);

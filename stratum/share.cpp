@@ -53,6 +53,8 @@ static void share_add_worker(YAAMP_CLIENT *client, YAAMP_JOB *job, bool valid, c
 		worker->valid = valid;
 		worker->error_number = error_number;
 		sscanf(ntime, "%x", &worker->ntime);
+		if(job && job->coind && !strcmp(job->coind->rpcencoding, "DCR"))
+			worker->ntime = bswap32(worker->ntime); // little endian, as serialized
 		worker->share_diff = share_diff;
 
 		if(g_stratum_reconnect)

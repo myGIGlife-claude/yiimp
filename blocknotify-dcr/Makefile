@@ -1,22 +1,13 @@
-OUT_GO=blocknotify-dcr
+# Go >= 1.21 required, the dependencies are fetched by the go tool (go.mod)
 OUTPUT=blocknotify-dcr
-ROOT=`pwd`
 
 all:
-	rm -f $(OUT_GO)
-	rm -rf vendor
-	glide install
-	ln -s ../vendor vendor/src
-	rm -f vendor/src/github.com/decred/dcrrpcclient/wallet.go
-	GOPATH="$(GOPATH):$(ROOT)/vendor" go build
+	go build -trimpath -ldflags "-s -w" -o $(OUTPUT) .
 
 install: all
-	strip -s $(OUT_GO)
 	killall -9 $(OUTPUT) || echo ok
-	mv $(OUT_GO) ../bin/$(OUTPUT)
-	sh -c "../bin/$(OUTPUT) &"
+	mv $(OUTPUT) ../bin/$(OUTPUT)
+	@echo "start it with: ../bin/$(OUTPUT) -stratum 127.0.0.1:3252 -coinid <id> -rpcuser <u> -rpcpass <p> [-rpccert rpc.cert | -notls] &"
 
 clean:
-	rm -f $(OUT_GO)
-	rm -rf vendor
-
+	rm -f $(OUTPUT)

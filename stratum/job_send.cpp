@@ -12,11 +12,27 @@ int job_get_jobid()
 	return jobid;
 }
 
-static void job_mining_notify_buffer(YAAMP_JOB *job, char *buffer)
+static void job_mining_notify_buffer(YAAMP_JOB *job, YAAMP_CLIENT *client, char *buffer)
 {
 	YAAMP_JOB_TEMPLATE *templ = job->templ;
 
-	if (!strcmp(g_stratum_algo, "lbry")) {
+	// other stratum protocols (protocol.h)
+	if (g_protocol && g_protocol->job_notify) {
+		g_protocol->job_notify(job, g_protocol->notify_per_client ? client : NULL, buffer, YAAMP_SMALLBUFSIZE);
+		return;
+	}
+
+	if (job->coind && !strcmp(job->coind->rpcencoding, "DCR")) {
+		// Decred (dcrpool / gominer): prevhash and the partial header (after the
+		// prevhash, "coinb1") as serialized, empty coinb2 and merkle branches,
+		// version, bits and time as serialized (little endian)
+		char nbits[16];
+		hexlify(nbits, (const unsigned char *) &templ->header[116], 4);
+		sprintf(buffer, "{\"id\":null,\"method\":\"mining.notify\",\"params\":["
+			"\"%x\",\"%s\",\"%s\",\"\",[],\"%s\",\"%s\",\"%s\",true]}\n",
+			job->id, templ->prevhash_be, templ->coinb1, templ->version, nbits, templ->ntime);
+		return;
+	} else if (!strcmp(g_stratum_algo, "lbry")) {
 		sprintf(buffer, "{\"id\":null,\"method\":\"mining.notify\",\"params\":["
 			"\"%x\",\"%s\",\"%s\",\"%s\",\"%s\",[%s],\"%s\",\"%s\",\"%s\",true]}\n",
 			job->id, templ->prevhash_be, templ->claim_be, templ->coinb1, templ->coinb2,
@@ -71,7 +87,7 @@ void job_send_last(YAAMP_CLIENT *client)
 	client->jobid_sent = job->id;
 
 	char buffer[YAAMP_SMALLBUFSIZE];
-	job_mining_notify_buffer(job, buffer);
+	job_mining_notify_buffer(job, client, buffer);
 
 	socket_send_raw(client->sock, buffer, strlen(buffer));
 }
@@ -86,7 +102,7 @@ void job_send_jobid(YAAMP_CLIENT *client, int jobid)
 	}
 
 	char buffer[YAAMP_SMALLBUFSIZE];
-	job_mining_notify_buffer(job, buffer);
+	job_mining_notify_buffer(job, client, buffer);
 
 	YAAMP_JOB_TEMPLATE *templ = job->templ;
 	client->jobid_sent = job->id;
@@ -108,7 +124,9 @@ void job_broadcast(YAAMP_JOB *job)
 	YAAMP_JOB_TEMPLATE *templ = job->templ;
 
 	char buffer[YAAMP_SMALLBUFSIZE];
-	job_mining_notify_buffer(job, buffer);
+	bool per_client = g_protocol && g_protocol->notify_per_client;
+	if (!per_client)
+		job_mining_notify_buffer(job, NULL, buffer);
 
 	g_list_client.Enter();
 	for(CLI li = g_list_client.first; li; li = li->next)
@@ -125,6 +143,10 @@ void job_broadcast(YAAMP_JOB *job)
 		client_add_job_history(client, job->id);
 
 		client_adjust_difficulty(client);
+
+		// the message has the share target of the client
+		if (per_client)
+			job_mining_notify_buffer(job, client, buffer);
 
 		setsockopt(client->sock->sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 

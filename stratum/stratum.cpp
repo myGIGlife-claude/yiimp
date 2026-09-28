@@ -116,16 +116,25 @@ YAAMP_ALGO g_algos[] =
 	{"blake", blake_hash, 1, 0 },
 	{"blake2b", blake2b_hash, 1, 0 },
 	{"blake2s", blake2s_hash, 1, 0 },
+	{"blake3", blake3_hash, 1, 0 }, /* raw BLAKE3-256 of the header */
 	{"blakecoin", blakecoin_hash, 1 /*0x100*/, 0, sha256_hash_hex },
 	{"bmw", bmw_hash, 1, 0, 0},
 	{"bmw512", bmw512_hash, 0x100, 0, 0},
 	{"c11", c11_hash, 1, 0, 0},
 	{"cpupower", cpupower_hash, 0x10000, 0, 0}, // CPUchain (CPU)
-	{"decred", decred_hash, 1, 0 },
+	{"decred", decred_hash, 1, 0 }, /* BLAKE3 since DCP-0011 (block 794368) */
 	{"dedal", dedal_hash, 0x100, 0, 0},
 	{"deep", deep_hash, 1, 0, 0},
 	{"dmd-gr", groestl_hash, 0x100, 0, 0}, /* diamond (double groestl) */
+	/* Zcash family (protocol_equihash.cpp): the hash is the block id, sha256d(header+solution),
+	 * share difficulty 1 = 0x0007ffff.. = 2^13 solutions, stored as is (web: 2^23 hashrate
+	 * constant for Sol/s, see protocol_equihash.cpp) */
+	{"equihash", sha256_double_hash, 1, 0, 0}, /* 200,9: ZEC, KMD, ARRR... */
+	{"equihash144", sha256_double_hash, 1, 0, 0}, /* 144,5: BTG, BTCZ, GLINK... */
+	{"equihash192", sha256_double_hash, 1, 0, 0}, /* 192,7: YEC, ZCL, ZER... */
+	{"evrprogpow", evrprogpow_hash, 1, 0, 0}, /* Evrmore (EVR), kawpow stratum protocol */
 	{"exosis", exosis_hash, 0x100, 0, 0},
+	{"firopow", firopow_hash, 1, 0, 0}, /* Firo (FIRO), kawpow stratum protocol */
 	{"flex", flex_hash, 1, 0, sha3d_hash_hex}, /* Kylacoin, Lyncoin: sha3d txids */
 	{"fresh", fresh_hash, 0x100, 0, 0},
 	{"geek", geek_hash, 1, 0, 0},
@@ -136,6 +145,7 @@ YAAMP_ALGO g_algos[] =
 	{"hsr", hsr_hash, 1, 0, 0},
 	{"jeonghash", jeonghash_hash, 0x100, 0, 0},
 	{"jha", jha_hash, 0x10000, 0},
+	{"kawpow", kawpow_hash, 1, 0, 0}, /* RVN, XNA, NEOX, SATOX... kawpow stratum protocol */
 	{"keccak", keccak256_hash, 0x80, 0, sha256_hash_hex },
 	{"keccakc", keccak256_hash, 0x100, 0, 0},
 	{"lbk3", lbk3_hash, 0x100, 0, 0},
@@ -149,6 +159,8 @@ YAAMP_ALGO g_algos[] =
 	{"lyra2z", lyra2z_hash, 0x100, 0, 0},
 	{"lyra2zz", lyra2zz_hash, 0x100, 0, 0},
 	{"m7m", m7m_hash, 0x10000, 0, 0},
+	{"meowpow", meowpow_hash, 1, 0, 0}, /* Meowcoin (MEWC), kawpow stratum protocol */
+	{"meraki", meraki_hash, 1, 0, 0}, /* Telestai (TLS), kawpow stratum protocol */
 	{"mike", mike_hash, 0x10000, 0, 0}, /* VKAX */
 	{"minotaur", minotaur_hash, 1, 0, 0},
 	{"minotaurx", minotaurx_hash, 1, 0, 0}, /* LCC, AVN, MAZA, PLSR... (pow type 1 in nVersion bits 16-23) */
@@ -166,6 +178,7 @@ YAAMP_ALGO g_algos[] =
 	{"quark", quark_hash, 1, 0, 0},
 	{"qubit", qubit_hash, 1, 0, 0},
 	{"rainforest", rainforest_hash, 1, 0, 0},
+	{"sccpow", sccpow_hash, 1, 0, 0}, /* StakeCubeCoin (SCC), kawpow stratum protocol */
 	{"scrypt", scrypt_hash, 0x10000, 0, 0},
 	{"scryptn", scryptn_hash, 0x10000, 0, 0},
 	{"sha256", sha256_double_hash, 1, 0, 0},
@@ -218,6 +231,7 @@ YAAMP_ALGO g_algos[] =
 	{"yespowerLTNCG", yespowerLTNCG_hash, 0x10000, 0, 0}, // Crionic (CRNC), LightningCash Gold
 	{"yespowerMGPC", yespowerMGPC_hash, 0x10000, 0, 0}, // Magpiecoin (MGPC)
 	{"yespowerR16", yespowerR16_hash, 0x10000, 0, 0}, // Yenten (YTN)
+	{"yespowerRES", yespowerRES_hash, 0x10000, 0, 0}, // Resistance (RES), 140 byte header
 	{"yespowerSUGAR", yespowerSUGAR_hash, 0x10000, 0, 0}, // Sugarchain (SUGAR)
 	{"yespowerTIDE", yespowerTIDE_hash, 0x10000, 0, 0}, // Tidecoin (TDC)
 	{"yespowerurx", yespowerurx_hash, 0x10000, 0, 0},
@@ -339,6 +353,13 @@ int main(int argc, char **argv)
 	g_max_shares = iniparser_getint(ini, "STRATUM:max_shares", g_max_shares);
 	g_limit_txs_per_block = iniparser_getint(ini, "STRATUM:max_txs_per_block", 0);
 
+	// FIRO (firopow) epoch clamp, nMaxPPEpoch/nTerminalPPEpoch of the chain (the mainnet
+	// values are the default, regtest uses 2 and 1)
+	int progpow_max_epoch = iniparser_getint(ini, "STRATUM:progpow_max_epoch", -1);
+	int progpow_terminal_epoch = iniparser_getint(ini, "STRATUM:progpow_terminal_epoch", -1);
+	if(progpow_max_epoch >= 0 && progpow_terminal_epoch >= 0)
+		progpow_set_clamp(progpow_max_epoch, progpow_terminal_epoch);
+
 	g_debuglog_client = iniparser_getint(ini, "DEBUGLOG:client", false);
 	g_debuglog_hash = iniparser_getint(ini, "DEBUGLOG:hash", false);
 	g_debuglog_socket = iniparser_getint(ini, "DEBUGLOG:socket", false);
@@ -346,12 +367,18 @@ int main(int argc, char **argv)
 	g_debuglog_list = iniparser_getint(ini, "DEBUGLOG:list", false);
 	g_debuglog_remote = iniparser_getint(ini, "DEBUGLOG:remote", false);
 
+	// own settings of the stratum protocol of the algo (equihash parameters...)
+	protocol_config(ini);
+
 	iniparser_freedict(ini);
 
 	g_current_algo = stratum_find_algo(g_stratum_algo);
 
 	if(!g_current_algo) yaamp_error("invalid algo");
 	if(!g_current_algo->hash_function) yaamp_error("no hash function");
+
+	// stratum protocol of the algo (protocol.h), NULL for the Bitcoin stratum
+	protocol_init();
 
 	if(!strcmp(g_current_algo->name, "verthash")) {
 		// the ~1.2 GB data file is mapped once and shared by all threads

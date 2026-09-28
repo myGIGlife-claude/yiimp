@@ -323,6 +323,12 @@ void db_update_coinds(YAAMP_DB *db)
 		// force the right rpcencoding for DCR
 		if(!strcmp(coind->symbol, "DCR") && strcmp(coind->rpcencoding, "DCR"))
 			strcpy(coind->rpcencoding, "DCR");
+#ifdef HAVE_CURL
+		// dcrd/dcrwallet close the connection after each answer and drop idle
+		// ones after 10s, which the persistent socket rpc client doesn't handle
+		if(!strcmp(coind->rpcencoding, "DCR"))
+			coind->rpc.curl = 1;
+#endif
 
 		// old dash masternodes coins..
 		if(coind->hasmasternodes) {

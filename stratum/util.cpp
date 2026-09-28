@@ -496,22 +496,13 @@ void ser_number(int n, char *a)
 
 void ser_compactsize(uint64_t nSize, char *a)
 {
-	if (nSize < 253)
-	{
-		sprintf(a, "%02lx", nSize);
-	}
-	else if (nSize <= (unsigned short)-1)
-	{
-		sprintf(a, "%02x%04lx", 253, nSize);
-	}
-	else if (nSize <= (unsigned int)-1)
-	{
-		sprintf(a, "%02x%08lx", 254, nSize);
-	}
-	else
-	{
-		sprintf(a, "%02x%016lx", 255, nSize);
-	}
+	// little endian, as serialized (fd + 2 bytes, fe + 4 bytes, ff + 8 bytes)
+	int bytes = nSize < 253 ? 1 : nSize <= 0xffff ? 2 : nSize <= 0xffffffffULL ? 4 : 8;
+	char *p = a;
+	if (bytes > 1)
+		p += sprintf(p, "%02x", bytes == 2 ? 253 : bytes == 4 ? 254 : 255);
+	for (int i = 0; i < bytes; i++)
+		p += sprintf(p, "%02x", (unsigned int) ((nSize >> (8*i)) & 0xff));
 }
 
 void ser_string_be(const char *input, char *output, int len)

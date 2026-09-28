@@ -5,6 +5,9 @@
 
 #include "stratum.h"
 
+#include <map>
+#include <string>
+
 #define TX_VALUE(v, s)	((unsigned int)(v>>s)&0xff)
 
 static void encode_tx_value(char *encoded, json_int_t value)
@@ -88,6 +91,164 @@ static json_int_t pack_template_payment(YAAMP_COIND *coind, char *dests, size_t 
 		return amount;
 	}
 	return 0;
+}
+
+
+// scriptPubKey (hex) of an address, asked to the daemon (validateaddress) once
+static bool coind_address_script(YAAMP_COIND *coind, const char *address, char *script, size_t size)
+{
+	static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+	static std::map<std::string, std::string> cache;
+
+	if (!address || !strlen(address)) {
+		// an empty address gives an empty script (e.g. FIRO regtest stage 2 fund)
+		if (size) script[0] = '\0';
+		return true;
+	}
+
+	std::string key = std::string(coind->symbol) + ":" + address;
+	pthread_mutex_lock(&mutex);
+	std::map<std::string, std::string>::iterator it = cache.find(key);
+	if (it != cache.end()) {
+		snprintf(script, size, "%s", it->second.c_str());
+		pthread_mutex_unlock(&mutex);
+		return true;
+	}
+	pthread_mutex_unlock(&mutex);
+
+	char params[256];
+	snprintf(params, sizeof(params), "[\"%s\"]", address);
+	json_value *json = rpc_call(&coind->rpc, "validateaddress", params);
+	json_value *result = json ? json_get_object(json, "result") : NULL;
+	const char *spk = result ? json_get_string(result, "scriptPubKey") : NULL;
+	bool ok = spk && strlen(spk) > 0 && strlen(spk) < size && ishexa((char *) spk, strlen(spk));
+	if (ok) {
+		snprintf(script, size, "%s", spk);
+		pthread_mutex_lock(&mutex);
+		cache[key] = spk;
+		pthread_mutex_unlock(&mutex);
+	} else {
+		stratumlog("ERROR %s: unable to get the script of address %s (validateaddress)\n", coind->symbol, address);
+	}
+	if (json) json_value_free(json);
+	return ok;
+}
+
+// chain name of the daemon (main, test, regtest), asked once
+static const char *coind_chain(YAAMP_COIND *coind)
+{
+	static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+	static std::map<int, std::string> cache;
+
+	pthread_mutex_lock(&mutex);
+	std::map<int, std::string>::iterator it = cache.find(coind->id);
+	if (it != cache.end()) {
+		const char *c = it->second.c_str();
+		pthread_mutex_unlock(&mutex);
+		return c;
+	}
+	pthread_mutex_unlock(&mutex);
+
+	json_value *json = rpc_call(&coind->rpc, "getblockchaininfo", "[]");
+	json_value *result = json ? json_get_object(json, "result") : NULL;
+	const char *chain = result ? json_get_string(result, "chain") : NULL;
+	std::string c = chain ? chain : "";
+	if (json) json_value_free(json);
+	if (c.empty()) return "";
+
+	pthread_mutex_lock(&mutex);
+	cache[coind->id] = c;
+	const char *r = cache[coind->id].c_str();
+	pthread_mutex_unlock(&mutex);
+	return r;
+}
+
+// Firo development and community fund outputs, not given by getblocktemplate: computed as
+// ContextualCheckBlock (validation.cpp) checks them, with the consensus params of
+// chainparams.cpp (firoorg/firo c03cd0a1, v0.14.18). Returns false if they are unknown.
+struct firo_params {
+	const char *chain;
+	int halving_first, halving_second, halving_interval;
+	uint32_t stage3_start_time;
+	int stage4_start_block;
+	int stage3_dev_share, stage3_community_share, stage4_dev_share, stage4_community_share;
+	int stage2_dev_share;
+	const char *stage2_dev_address, *stage3_dev_address, *stage3_community_address;
+	const char *stage41_dev_address;
+	int stage41_start_block;
+	uint32_t mtp_switch_time;
+	int mtp_reward_reduction;
+	json_int_t tail_subsidy;
+};
+
+static const struct firo_params g_firo_params[] = {
+	{ "main", 302438, 958655, 840000, 1655380800, 958655, 15, 10, 15, 10, 15,
+	  "aFrAVZFr8pva5mG8XKaUH8EXcFVVNxLiuB", "aLgRaYSFk6iVw2FqY1oei8Tdn2aTsGPVmP", "aFA2TbqG9cnhhzX5Yny2pBJRK5EaEqLCH7",
+	  "a7GJ9bYfbZqvXmEmxzxZyZYtUTQmzckpjG", 1205100, 1544443200, 2, 4*100000000LL },
+	{ "test", 12000, 150000, 150000, 1653409800, 167500, 15, 10, 15, 10, 15,
+	  "TUuKypsbbnHHmZ2auC2BBWfaP1oTEnxjK2", "TWDxLLKsFp6qcV1LL4U2uNmW4HwMcapmMU", "TCkC4uoErEyCB4MK3d6ouyJELoXnuyqe9L",
+	  "TEQQi3AraGdo7VHVM7Z8xKYTiiNcy8rydF", 189800, 1539172800, 2, 4*100000000LL },
+	{ "regtest", 1500, 2500, 1000, 0x7fffffff, 2500, 15, 10, 25, 15, 15,
+	  "", "TGEGf26GwyUBE2P2o2beBAfE9Y438dCp5t", "TJmPzeJF4DECrBwUftc265U7rTPxKmpa4F",
+	  "TEK8Kd2hd344LABNbMDTUTM3q4hH9WRn4q", 2600, 0x7fffffff, 2, 4*100000000LL },
+	{ NULL }
+};
+
+static json_int_t firo_block_subsidy(const struct firo_params *p, int height, uint32_t ntime)
+{
+	if (height == 0) return 0;
+	json_int_t subsidy;
+	if (height < p->halving_first) subsidy = 50*100000000LL;
+	else if (height < p->halving_second) subsidy = 25*100000000LL;
+	else if (height < p->stage4_start_block) subsidy = 25*100000000LL / 2;
+	else if (height < p->stage4_start_block + p->halving_interval) subsidy = 25*100000000LL;
+	else subsidy = p->tail_subsidy;
+	if (ntime >= p->mtp_switch_time) subsidy /= p->mtp_reward_reduction;
+	if (ntime >= p->stage3_start_time) subsidy /= 2;
+	return subsidy;
+}
+
+// appends the fund outputs to dests, returns the number of outputs or -1 on error
+static int firo_fund_outputs(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, char *dests, size_t size)
+{
+	const char *chain = coind_chain(coind);
+	const struct firo_params *p = NULL;
+	for (int i = 0; g_firo_params[i].chain; i++)
+		if (!strcmp(g_firo_params[i].chain, chain)) p = &g_firo_params[i];
+	if (!p) {
+		stratumlog("ERROR %s: unknown chain '%s' for the Firo funds\n", coind->symbol, chain);
+		return -1;
+	}
+
+	int height = templ->height;
+	uint32_t ntime = (uint32_t) strtoul(templ->ntime, NULL, 16);
+	if (height < p->halving_first) {
+		stratumlog("ERROR %s: Firo founders rewards (height < %d) are not supported\n", coind->symbol, p->halving_first);
+		return -1;
+	}
+
+	json_int_t subsidy = firo_block_subsidy(p, height, ntime);
+	char script[256];
+	int n = 0;
+
+	if (ntime >= p->stage3_start_time) {
+		bool stage3 = height < p->halving_second;
+		bool stage4 = height >= p->stage4_start_block;
+		if (!stage3 && !stage4) return 0;
+		json_int_t dev = subsidy * (stage3 ? p->stage3_dev_share : p->stage4_dev_share) / 100;
+		json_int_t community = subsidy * (stage3 ? p->stage3_community_share : p->stage4_community_share) / 100;
+		const char *dev_address = (p->stage41_start_block > 0 && height >= p->stage41_start_block) ?
+			p->stage41_dev_address : p->stage3_dev_address;
+		if (!coind_address_script(coind, dev_address, script, sizeof(script))) return -1;
+		script_pack_tx(coind, dests, dev, script); n++;
+		if (!coind_address_script(coind, p->stage3_community_address, script, sizeof(script))) return -1;
+		script_pack_tx(coind, dests, community, script); n++;
+	} else {
+		json_int_t dev = subsidy * p->stage2_dev_share / 100;
+		if (!coind_address_script(coind, p->stage2_dev_address, script, sizeof(script))) return -1;
+		script_pack_tx(coind, dests, dev, script); n++;
+	}
+	return n;
 }
 
 void coinbase_aux(YAAMP_JOB_TEMPLATE *templ, char *aux_script)
@@ -660,6 +821,90 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 		}
 	}
 }
+
+	// Firo (FIRO): "znode": [{payee, script, amount}] (deterministic masternodes) and a DIP3
+	// "coinbase_payload". "coinbasevalue" is only the miner output: the daemon already took
+	// the masternode and development/community fund shares out of it. The fund outputs are
+	// not in the template (see firo_fund_outputs).
+	json_value *firo_znode = json_get_array(json_result, "znode");
+	if(json_is_array(firo_znode))
+	{
+		char script_dests[4096] = { 0 };
+		char payees[16];
+		int npayees = (templ->has_segwit_txs) ? 2 : 1;
+
+		for(int i = 0; i < firo_znode->u.array.length; i++) {
+			json_value *entry = firo_znode->u.array.values[i];
+			if(pack_template_payment(coind, script_dests, sizeof(script_dests), entry)) npayees++;
+		}
+		int nfunds = firo_fund_outputs(coind, templ, script_dests, sizeof(script_dests));
+		if(nfunds < 0) {
+			templ->coinb2[0] = '\0'; // no valid coinbase: drop the template
+			return;
+		}
+		npayees += nfunds;
+
+		sprintf(payees, "%02x", npayees);
+		strcat(templ->coinb2, payees);
+		if (templ->has_segwit_txs) strcat(templ->coinb2, commitment);
+		job_pack_tx(coind, templ->coinb2, available, NULL);
+		strcat(templ->coinb2, script_dests);
+		strcat(templ->coinb2, "00000000"); // locktime
+		if(coinbase_payload && strlen(coinbase_payload) > 0) {
+			char coinbase_payload_size[18];
+			ser_compactsize((unsigned int)(strlen(coinbase_payload) >> 1), coinbase_payload_size);
+			strcat(templ->coinb2, coinbase_payload_size);
+			strcat(templ->coinb2, coinbase_payload);
+		}
+		coind->reward = (double)available/100000000*coind->reward_mul;
+		return;
+	}
+
+	// Meowcoin (MEWC): "CommunityAutonomousAddress", "CommunityAutonomousValue". The community
+	// fund must be vout[1] (validation.cpp), "coinbasevalue" is the miner output (vout[0]).
+	const char *mewc_address = json_get_string(json_result, "CommunityAutonomousAddress");
+	json_int_t mewc_value = json_get_int(json_result, "CommunityAutonomousValue");
+	if(mewc_address && strlen(mewc_address) && mewc_value > 0)
+	{
+		char script[256];
+		if(!coind_address_script(coind, mewc_address, script, sizeof(script))) {
+			templ->coinb2[0] = '\0';
+			return;
+		}
+		strcat(templ->coinb2, templ->has_segwit_txs ? "03" : "02");
+		job_pack_tx(coind, templ->coinb2, available, NULL);
+		script_pack_tx(coind, templ->coinb2, mewc_value, script);
+		if (templ->has_segwit_txs) strcat(templ->coinb2, commitment);
+		strcat(templ->coinb2, "00000000"); // locktime
+		coind->reward = (double)available/100000000*coind->reward_mul;
+		return;
+	}
+
+	// Evrmore (EVR): "coinbasetxn": {"minerdevfund": {"addresses": [...], "minimumvalue": n}},
+	// an output of at least minimumvalue to one of the addresses is required (validation.cpp
+	// bad-cb-minerdevfund), "coinbasevalue" is the whole coinbase value.
+	json_value *evr_coinbasetxn = json_get_object(json_result, "coinbasetxn");
+	json_value *evr_fund = evr_coinbasetxn && evr_coinbasetxn->type == json_object ?
+		json_get_object(evr_coinbasetxn, "minerdevfund") : NULL;
+	json_value *evr_addresses = evr_fund && evr_fund->type == json_object ? json_get_array(evr_fund, "addresses") : NULL;
+	if(json_is_array(evr_addresses) && evr_addresses->u.array.length > 0)
+	{
+		json_int_t fund_value = json_get_int(evr_fund, "minimumvalue");
+		const char *fund_address = json_string_value(evr_addresses->u.array.values[0]);
+		char script[256];
+		if(fund_value <= 0 || !coind_address_script(coind, fund_address, script, sizeof(script))) {
+			templ->coinb2[0] = '\0';
+			return;
+		}
+		available -= fund_value;
+		strcat(templ->coinb2, templ->has_segwit_txs ? "03" : "02");
+		if (templ->has_segwit_txs) strcat(templ->coinb2, commitment);
+		job_pack_tx(coind, templ->coinb2, available, NULL);
+		script_pack_tx(coind, templ->coinb2, fund_value, script);
+		strcat(templ->coinb2, "00000000"); // locktime
+		coind->reward = (double)available/100000000*coind->reward_mul;
+		return;
+	}
 
 	// Raptoreum (RTM) and its clones, Dash-derived. getblocktemplate (src/rpc/mining.cpp) gives
 	//   "smartnode": [{payee, script, amount}], "smartnode_payments_started/_enforced",

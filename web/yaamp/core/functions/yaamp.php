@@ -19,6 +19,7 @@ function yaamp_get_algos()
         'blake',
         'blake2b',
         'blake2s',
+        'blake3',
         'blakecoin',
         'bmw',
         'bmw512',
@@ -28,7 +29,12 @@ function yaamp_get_algos()
         'dedal',
         'deep',
         'dmd-gr',
+        'equihash',
+        'equihash144',
+        'equihash192',
+        'evrprogpow',
         'exosis',
+        'firopow',
         'flex',
         'fresh',
         'geek',
@@ -39,6 +45,7 @@ function yaamp_get_algos()
         'hsr',
         'jeonghash',
         'jha',
+        'kawpow',
         'keccak',
         'keccakc',
         'lbk3',
@@ -52,6 +59,8 @@ function yaamp_get_algos()
         'lyra2z330',
         'lyra2zz',
         'm7m',
+        'meowpow',
+        'meraki',
         'mike',
         'minotaur',
         'minotaurx',
@@ -69,6 +78,7 @@ function yaamp_get_algos()
         'quark',
         'qubit',
         'rainforest',
+        'sccpow',
         'scrypt',
         'scryptn',
         'sha256',
@@ -121,6 +131,7 @@ function yaamp_get_algos()
         'yespowerLTNCG',
         'yespowerMGPC',
         'yespowerR16',
+        'yespowerRES',
         'yespowerSUGAR',
         'yespowerTIDE',
         'yespowerurx',
@@ -147,10 +158,15 @@ function yaamp_algo_mBTC_factor($algo)
         case 'vanilla':
         case 'sha512256d':
         case 'sha3-256t':
+        case 'blake3':
             return 1000;
         case 'ghostrider':
         case 'mike':
         case 'flex':
+        case 'yespowerRES':
+        case 'equihash':
+        case 'equihash144':
+        case 'equihash192':
             return 0.001;
         default:
             return 1;
@@ -220,6 +236,7 @@ function getAlgoColors($algo)
         'blake' => '#f0f0f0',
         'blake2b' => '#f2c81f',
         'blake2s' => '#e0e0e0',
+        'blake3' => '#f0f0f0',
         'blakecoin' => '#f0f0f0',
         'bmw' => '#e0e0e0',
         'bmw512' => '#f0f0f0',
@@ -229,7 +246,12 @@ function getAlgoColors($algo)
         'dedal' => '#e0e0e0',
         'deep' => '#e0ffff',
         'dmd-gr' => '#a0c0f0',
+        'equihash' => '#e8c890',
+        'equihash144' => '#d8c8a0',
+        'equihash192' => '#c8b890',
+        'evrprogpow' => '#a0d0f0',
         'exosis' => '#49CCFE',
+        'firopow' => '#e08080',
         'flex' => '#80d0c0',
         'fresh' => '#e0e0e0',
         'geek' => '#d0a0a0',
@@ -240,6 +262,7 @@ function getAlgoColors($algo)
         'hsr' => '#aa70ff',
         'jeonghash' => '#e0e0e0',
         'jha' => '#a0d0c0',
+        'kawpow' => '#80c0e0',
         'keccak' => '#c0f0c0',
         'keccakc' => '#c0f0c0',
         'lbk3' => '#809aef',
@@ -253,6 +276,8 @@ function getAlgoColors($algo)
         'lyra2z330' => '#80b0f0',
         'lyra2zz' => '#80b0f0',
         'm7m' => '#d0a0a0',
+        'meowpow' => '#f0c080',
+        'meraki' => '#c0a0f0',
         'mike' => '#b0a0e0',
         'minotaur' => '#e0e0e0',
         'minotaurx' => '#e0b080',
@@ -270,6 +295,7 @@ function getAlgoColors($algo)
         'quark' => '#c0c0c0',
         'qubit' => '#d0a0f0',
         'rainforest' => '#d0f0a0',
+        'sccpow' => '#80e0c0',
         'scrypt' => '#c0c0e0',
         'scryptn' => '#d0d0d0',
         'sha256' => '#d0d0a0',
@@ -322,6 +348,7 @@ function getAlgoColors($algo)
         'yespowerLTNCG' => '#d0c0e0',
         'yespowerMGPC' => '#c8d8c8',
         'yespowerR16' => '#e2d0d2',
+        'yespowerRES' => '#d0c0f8',
         'yespowerSUGAR' => '#e0c0a0',
         'yespowerTIDE' => '#d8e0c0',
         'yespowerurx' => '#e0e0e0',
@@ -354,6 +381,7 @@ function getAlgoPort($algo)
         'blake' => 5733,
         'blake2b' => 5777,
         'blake2s' => 5766,
+        'blake3' => 9661,
         'blakecoin' => 5743,
         'bmw' => 9401,
         'bmw512' => 5787,
@@ -363,7 +391,12 @@ function getAlgoPort($algo)
         'dedal' => 3538,
         'deep' => 3535,
         'dmd-gr' => 5333,
+        'equihash' => 9600,
+        'equihash144' => 9601,
+        'equihash192' => 9602,
+        'evrprogpow' => 9502,
         'exosis' => 3557,
+        'firopow' => 9504,
         'flex' => 9304,
         'fresh' => 4144,
         'geek' => 3692,
@@ -374,6 +407,7 @@ function getAlgoPort($algo)
         'hsr' => 7433,
         'jeonghash' => 8660,
         'jha' => 4633,
+        'kawpow' => 9501,
         'keccak' => 5133,
         'keccakc' => 5134,
         'lbk3' => 5522,
@@ -387,6 +421,8 @@ function getAlgoPort($algo)
         'lyra2z330' => 3000,
         'lyra2zz' => 4556,
         'm7m' => 6033,
+        'meowpow' => 9503,
+        'meraki' => 9506,
         'mike' => 9302,
         'minotaur' => 7018,
         'minotaurx' => 9303,
@@ -404,6 +440,7 @@ function getAlgoPort($algo)
         'quark' => 4033,
         'qubit' => 4733,
         'rainforest' => 7443,
+        'sccpow' => 9505,
         'scrypt' => 3433,
         'scryptn' => 4333,
         'sha256' => 3333,
@@ -456,6 +493,7 @@ function getAlgoPort($algo)
         'yespowerLTNCG' => 9104,
         'yespowerMGPC' => 9105,
         'yespowerR16' => 6236,
+        'yespowerRES' => 9650,
         'yespowerSUGAR' => 9102,
         'yespowerTIDE' => 9101,
         'yespowerurx' => 9405,
@@ -518,7 +556,16 @@ function take_yaamp_fee($v, $algo, $percent = -1)
 
 function yaamp_hashrate_constant($algo = null)
 {
-    return pow(2, 42); // 0x400 00000000
+    switch ($algo) {
+        case 'equihash':
+        case 'equihash144':
+        case 'equihash192':
+            // Sol/s: a share of difficulty 1 (target 0x0007ffff...) is 8192
+            // solutions; same 1.024 (k) convention as the 2^42 below
+            return pow(2, 23);
+        default:
+            return pow(2, 42); // 0x400 00000000
+    }
 }
 
 function yaamp_hashrate_step()

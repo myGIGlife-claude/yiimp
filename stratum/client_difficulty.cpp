@@ -79,6 +79,9 @@ int client_send_difficulty(YAAMP_CLIENT *client, double difficulty)
 //	debuglog("%s diff %f\n", client->sock->ip, difficulty);
 	client->shares_per_minute = YAAMP_SHAREPERSEC;
 
+	if(g_protocol && g_protocol->send_difficulty)
+		return g_protocol->send_difficulty(client, difficulty);
+
 	if(difficulty >= 1)
 		client_call(client, "mining.set_difficulty", "[%.0f]", difficulty);
 	else
