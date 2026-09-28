@@ -63,6 +63,33 @@ static void job_pack_tx(YAAMP_COIND *coind, char *data, json_int_t amount, char 
 //	debuglog("pack tx %lld\n", amount);
 }
 
+// Append one required payment of a getblocktemplate entry ({"payee", "script", "amount"}),
+// preferring the scriptPubKey given by the daemon (works for P2PKH, P2SH, P2WPKH...).
+// Returns the amount packed (0 when the entry is empty or unusable).
+static json_int_t pack_template_payment(YAAMP_COIND *coind, char *dests, size_t size, json_value *entry)
+{
+	if (!entry || entry->type != json_object) return 0;
+	if (strlen(dests) + 2*(8+3+200) + 1 > size) {
+		stratumlog("ERROR %s too many coinbase payments in the template\n", coind->symbol);
+		return 0;
+	}
+	json_int_t amount = json_get_int(entry, "amount");
+	const char *script = json_get_string(entry, "script");
+	const char *payee = json_get_string(entry, "payee");
+	if (amount <= 0) return 0;
+	if (script && strlen(script) > 0 && strlen(script) < 200) {
+		script_pack_tx(coind, dests, amount, script);
+		return amount;
+	}
+	if (payee && strlen(payee) > 0) {
+		char script_payee[1024] = { 0 };
+		base58_decode(payee, script_payee);
+		job_pack_tx(coind, dests, amount, script_payee);
+		return amount;
+	}
+	return 0;
+}
+
 void coinbase_aux(YAAMP_JOB_TEMPLATE *templ, char *aux_script)
 {
 	vector<string> hashlist = coind_aux_hashlist(templ->auxs, templ->auxs_size);
@@ -149,9 +176,15 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 	if(coind->txmessage)
 		strcpy(eversion1, "02000000");
 
+	// Kylacoin/Lyncoin (flex) hash transactions with sha3d; Lyncoin only does so for
+	// version 8 transactions (primitives/transaction.cpp), and its AuxPoW check hashes
+	// the parent (KCN) coinbase that way, so the coinbase must be a version 8 tx.
+	if(g_current_algo && g_current_algo->merkle_func == sha3d_hash_hex)
+		strcpy(eversion1, "08000000");
+
 	const char *coinbase_payload = json_get_string(json_result, "coinbase_payload");
 	if(coinbase_payload && strlen(coinbase_payload) > 0)
-		strcpy(eversion1, "03000500");
+		strcpy(eversion1, "03000500"); // DIP2 special tx: version 3, type 5 (CbTx)
 
 	char script1[4*1024];
 	sprintf(script1, "%s%s%s08", eheight, templ->flags, etime);
@@ -627,6 +660,113 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 		}
 	}
 }
+
+	// Raptoreum (RTM) and its clones, Dash-derived. getblocktemplate (src/rpc/mining.cpp) gives
+	//   "smartnode": [{payee, script, amount}], "smartnode_payments_started/_enforced",
+	//   "superblock": [{payee, script, amount}], "superblocks_started/_enabled",
+	//   "founder": {payee, script, amount}, "founder_payments_started",
+	//   "coinbase_payload": the CbTx of the DIP3 special coinbase (version 3, type 5).
+	// "coinbasevalue" is the whole coinbase value, the daemon takes the smartnode and
+	// founder shares out of the miner output (FillBlockPayments, FillFounderPayment), and
+	// validation requires every smartnode output exactly (CSmartnodePayments::IsTransactionValid)
+	// and a founder output >= the founder share (FounderPayment::IsBlockPayeeValid).
+	// Keyed on the template fields so that clones work whatever their symbol and without
+	// the "hasmasternodes" coin flag; a clone that kept the Dash "masternode" name
+	// (array or object) is handled the same way.
+	json_value *rtm_smartnode = json_get_array(json_result, "smartnode");
+	json_value *rtm_founder = json_get_object(json_result, "founder");
+	// Also used for a Dash-style template with a CbTx payload when the coin is not flagged
+	// "hasmasternodes" (VKAX and other Dash forks): a version 3 type 5 coinbase always
+	// needs the payload after the locktime.
+	if(json_is_array(rtm_smartnode) || json_get_object(json_result, "founder_payments_started")
+		|| (!coind->hasmasternodes && coinbase_payload && strlen(coinbase_payload) > 0))
+	{
+		char script_dests[4096] = { 0 };
+		char payees[16];
+		int npayees = (templ->has_segwit_txs) ? 2 : 1;
+		json_int_t amount;
+
+		json_value *nodes = rtm_smartnode;
+		if(!json_is_array(nodes)) nodes = json_get_array(json_result, "masternode");
+		if(json_is_array(nodes)) {
+			for(int i = 0; i < nodes->u.array.length; i++) {
+				amount = pack_template_payment(coind, script_dests, sizeof(script_dests), nodes->u.array.values[i]);
+				if(amount) { npayees++; available -= amount; }
+			}
+		} else if(nodes && nodes->type == json_object) {
+			amount = pack_template_payment(coind, script_dests, sizeof(script_dests), nodes);
+			if(amount) { npayees++; available -= amount; }
+		}
+
+		json_value *superblock = json_get_array(json_result, "superblock");
+		if(json_is_array(superblock)) {
+			for(int i = 0; i < superblock->u.array.length; i++) {
+				amount = pack_template_payment(coind, script_dests, sizeof(script_dests), superblock->u.array.values[i]);
+				if(amount) { npayees++; available -= amount; }
+			}
+		}
+
+		// founder: an object, or an array of objects in some clones
+		if(json_is_array(rtm_founder)) {
+			for(int i = 0; i < rtm_founder->u.array.length; i++) {
+				amount = pack_template_payment(coind, script_dests, sizeof(script_dests), rtm_founder->u.array.values[i]);
+				if(amount) { npayees++; available -= amount; }
+			}
+		} else {
+			amount = pack_template_payment(coind, script_dests, sizeof(script_dests), rtm_founder);
+			if(amount) { npayees++; available -= amount; }
+		}
+
+		if(available < 0) {
+			stratumlog("ERROR %s coinbase payments exceed the block value!\n", coind->symbol);
+			available = 0;
+		}
+
+		size_t payload_len = coinbase_payload ? strlen(coinbase_payload) : 0;
+		if(npayees > 252 || strlen(templ->coinb2) + strlen(script_dests) + payload_len + 256 > sizeof(templ->coinb2)) {
+			stratumlog("ERROR %s coinbase too large (%d outputs)\n", coind->symbol, npayees);
+			return;
+		}
+		sprintf(payees, "%02x", npayees);
+		strcat(templ->coinb2, payees);
+		if (templ->has_segwit_txs) strcat(templ->coinb2, commitment);
+		strcat(templ->coinb2, script_dests);
+		job_pack_tx(coind, templ->coinb2, available, NULL);
+		strcat(templ->coinb2, "00000000"); // locktime
+		if(payload_len > 0) {
+			char coinbase_payload_size[18];
+			ser_compactsize((unsigned int)(payload_len >> 1), coinbase_payload_size);
+			strcat(templ->coinb2, coinbase_payload_size);
+			strcat(templ->coinb2, coinbase_payload);
+		}
+
+		coind->reward = (double)available/100000000*coind->reward_mul;
+		return;
+	}
+
+	// Kylacoin (KCN), Lyncoin (LCN): "coinbasedevreward": {value, scriptpubkey, address}.
+	// Here "coinbasevalue" is only the miner output (vout[0] of the daemon's coinbase), the
+	// developer output comes on top of it and is required by ConnectBlock (devreward-not-found).
+	json_value *devreward = json_get_object(json_result, "coinbasedevreward");
+	if(devreward && devreward->type == json_object && !coind->hasmasternodes
+		&& json_get_int(devreward, "value") > 0 && json_get_string(devreward, "scriptpubkey"))
+	{
+		const char *dev_script = json_get_string(devreward, "scriptpubkey");
+		json_int_t dev_value = json_get_int(devreward, "value");
+
+		if (templ->has_segwit_txs) {
+			strcat(templ->coinb2, "03"); // commitment + miner + dev
+			strcat(templ->coinb2, commitment);
+		} else {
+			strcat(templ->coinb2, "02");
+		}
+		job_pack_tx(coind, templ->coinb2, available, NULL);
+		script_pack_tx(coind, templ->coinb2, dev_value, dev_script);
+		strcat(templ->coinb2, "00000000"); // locktime
+
+		coind->reward = (double)available/100000000*coind->reward_mul;
+		return;
+	}
 
 	// 2 txs are required on these coins, one for foundation (dev fees)
 	if(coind->charity_percent && !coind->hasmasternodes)

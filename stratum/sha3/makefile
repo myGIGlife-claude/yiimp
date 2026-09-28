@@ -1,7 +1,10 @@
 
 CC=gcc
 
-CFLAGS= -O3 -march=native -std=gnu17 -MMD -MP
+# Portable by default so the binary keeps working if the VM moves to another
+# CPU model; build with "make MARCH=native" to tune for this machine.
+MARCH ?= x86-64-v2
+CFLAGS= -O3 -march=$(MARCH) -fno-strict-aliasing -std=gnu17 -MMD -MP
 LDFLAGS=-O2
 
 SOURCES=sph_jh.c sph_blake.c sph_bmw.c sph_groestl.c sph_skein.c sph_keccak.c sph_luffa.c sph_cubehash.c sph_shavite.c \

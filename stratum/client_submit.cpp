@@ -166,6 +166,8 @@ static void client_do_submit(YAAMP_CLIENT *client, YAAMP_JOB *job, YAAMP_JOB_VAL
 
 	for(i = templ->txdata.begin(); i != templ->txdata.end(); ++i)
 		block_size += strlen((*i).c_str());
+	for(i = templ->mweb.begin(); i != templ->mweb.end(); ++i)
+		block_size += strlen((*i).c_str()) + 2;
 
 	char *block_hex = (char *)malloc(block_size);
 	if(!block_hex) return;
@@ -248,6 +250,11 @@ static void client_do_submit(YAAMP_CLIENT *client, YAAMP_JOB *job, YAAMP_JOB_VAL
 		for(i = templ->txdata.begin(); i != templ->txdata.end(); ++i)
 			sprintf(block_hex+strlen(block_hex), "%s", (*i).c_str());
 
+		// Litecoin MWEB: the extension block follows the HogEx transaction,
+		// as an optional pointer (0x01 = present)
+		for(i = templ->mweb.begin(); i != templ->mweb.end(); ++i)
+			sprintf(block_hex+strlen(block_hex), "01%s", (*i).c_str());
+
 		// POS coins need a zero byte appended to block, the daemon replaces it with the signature
 		if(coind->pos)
 			strcat(block_hex, "00");
@@ -276,6 +283,9 @@ static void client_do_submit(YAAMP_CLIENT *client, YAAMP_JOB *job, YAAMP_JOB_VAL
 			YAAMP_HASH_FUNCTION merkle_hash = sha256_double_hash_hex;
 			//if (g_current_algo->merkle_func)
 			//	merkle_hash = g_current_algo->merkle_func;
+			// Kylacoin/Lyncoin: the block id is sha3d of the header, like their txids
+			if (g_current_algo->merkle_func == sha3d_hash_hex)
+				merkle_hash = sha3d_hash_hex;
 
 			merkle_hash((char *)submitvalues->header_bin, doublehash2, strlen(submitvalues->header_be)/2);
 
@@ -287,6 +297,18 @@ static void client_do_submit(YAAMP_CLIENT *client, YAAMP_JOB *job, YAAMP_JOB_VAL
 			memset(hash1, 0, 1024);
 
 			string_be(doublehash2, hash1);
+
+			// coins whose block id is not the sha256d of the header
+			if(!strcmp(g_stratum_algo, "sha512256d") || !strcmp(g_stratum_algo, "sha3-256t")) {
+				// RXD, BC3: the block id is the pow hash
+				strcpy(hash1, submitvalues->hash_be);
+			} else if(!strcmp(g_stratum_algo, "power2b")) {
+				// MBC: the block id is blake2b-256 of the header
+				unsigned char idx[32];
+				blake2b_hash((char *)submitvalues->header_bin, (char *)idx, 80);
+				hexlify(doublehash2, idx, 32);
+				string_be(doublehash2, hash1);
+			}
 
 			if(coind->usegetwork && !strcmp("DCR", coind->rpcencoding)) {
 				// no merkle stuff

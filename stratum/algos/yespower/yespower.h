@@ -123,8 +123,32 @@ extern int yespower(yespower_local_t *local,
 extern int yespower_tls(const uint8_t *src, size_t srclen,
     const yespower_params_t *params, yespower_binary_t *dst);
 
+/**
+ * yespower_b2b_tls(src, srclen, params, dst):
+ * Same as yespower_tls() with BLAKE2b in place of SHA-256 ("yespower-b2b",
+ * MicroBitcoin power2b).  params->version must be YESPOWER_1_0.
+ */
+extern int yespower_b2b_tls(const uint8_t *src, size_t srclen,
+    const yespower_params_t *params, yespower_binary_t *dst);
+
+/* yiimp stratum hash functions (80-byte block header in, 32 bytes out) */
 void yespower_hash(const char* input, char* output, uint32_t len);
 void yespowerurx_hash(const char* input, char* output, uint32_t len);
+void yespowerR16_hash(const char* input, char* output, uint32_t len);
+void yespowerTIDE_hash(const char* input, char* output, uint32_t len);
+void yespowerSUGAR_hash(const char* input, char* output, uint32_t len);
+void yespowerADVC_hash(const char* input, char* output, uint32_t len);
+void yespowerLTNCG_hash(const char* input, char* output, uint32_t len);
+void yespowerMGPC_hash(const char* input, char* output, uint32_t len);
+void yespowerARWN_hash(const char* input, char* output, uint32_t len);
+void yespowerIC_hash(const char* input, char* output, uint32_t len);
+void yespowerLITB_hash(const char* input, char* output, uint32_t len);
+void cpupower_hash(const char* input, char* output, uint32_t len);
+void power2b_hash(const char* input, char* output, uint32_t len);
+void yescrypt_hash(const char* input, char* output, uint32_t len);
+void yescryptR8_hash(const char* input, char* output, uint32_t len);
+void yescryptR16_hash(const char* input, char* output, uint32_t len);
+void yescryptR32_hash(const char* input, char* output, uint32_t len);
 
 #ifdef __cplusplus
 }

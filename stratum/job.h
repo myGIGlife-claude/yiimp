@@ -39,6 +39,7 @@ struct YAAMP_JOB_TEMPLATE
 
 	vector<string> txsteps;
 	vector<string> txdata;
+	vector<string> mweb; // Litecoin MWEB block (hex), appended to the block after the HogEx transaction
 
 	char version[32];
 	char nbits[32];

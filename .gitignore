@@ -29,3 +29,5 @@ web/yaamp/modules/site/index.php
 web/yaamp/modules/site/results/current_results.php
 stratum/hashtest
 *.d
+stratum/verthash_gen
+verthash.dat

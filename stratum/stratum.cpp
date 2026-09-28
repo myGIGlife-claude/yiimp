@@ -29,6 +29,7 @@ char g_stratum_coin_include[256];
 char g_stratum_coin_exclude[256];
 
 char g_stratum_algo[256];
+char g_verthash_datafile[1024];
 double g_stratum_difficulty;
 double g_stratum_nicehash_difficulty;
 double g_stratum_nicehash_min_diff;
@@ -41,6 +42,12 @@ int g_stratum_max_cons = 5000;
 bool g_stratum_reconnect;
 bool g_stratum_renting;
 bool g_stratum_segwit = false;
+
+// Multi-algo chains select the PoW by bits of the block version: getblocktemplate may
+// need to be told the algo ("powalgo") and the header must carry the algo bits.
+char g_stratum_gbt_powalgo[64];
+uint32_t g_stratum_version_mask = 0;
+uint32_t g_stratum_version_bits = 0;
 
 int g_limit_txs_per_block = 0;
 
@@ -113,13 +120,16 @@ YAAMP_ALGO g_algos[] =
 	{"bmw", bmw_hash, 1, 0, 0},
 	{"bmw512", bmw512_hash, 0x100, 0, 0},
 	{"c11", c11_hash, 1, 0, 0},
+	{"cpupower", cpupower_hash, 0x10000, 0, 0}, // CPUchain (CPU)
 	{"decred", decred_hash, 1, 0 },
 	{"dedal", dedal_hash, 0x100, 0, 0},
 	{"deep", deep_hash, 1, 0, 0},
 	{"dmd-gr", groestl_hash, 0x100, 0, 0}, /* diamond (double groestl) */
 	{"exosis", exosis_hash, 0x100, 0, 0},
+	{"flex", flex_hash, 1, 0, sha3d_hash_hex}, /* Kylacoin, Lyncoin: sha3d txids */
 	{"fresh", fresh_hash, 0x100, 0, 0},
 	{"geek", geek_hash, 1, 0, 0},
+	{"ghostrider", ghostrider_hash, 0x10000, 0, 0}, /* Raptoreum */
 	{"groestl", groestl_hash, 0x100, 0, sha256_hash_hex }, /* groestlcoin */
 	{"hex", hex_hash, 0x100, 0, sha256_hash_hex },
 	{"hmq1725", hmq17_hash, 0x10000, 0, 0},
@@ -139,7 +149,9 @@ YAAMP_ALGO g_algos[] =
 	{"lyra2z", lyra2z_hash, 0x100, 0, 0},
 	{"lyra2zz", lyra2zz_hash, 0x100, 0, 0},
 	{"m7m", m7m_hash, 0x10000, 0, 0},
+	{"mike", mike_hash, 0x10000, 0, 0}, /* VKAX */
 	{"minotaur", minotaur_hash, 1, 0, 0},
+	{"minotaurx", minotaurx_hash, 1, 0, 0}, /* LCC, AVN, MAZA, PLSR... (pow type 1 in nVersion bits 16-23) */
 	{"myr-gr", groestlmyriad_hash, 1, 0, 0}, /* groestl + sha 64 */
 	{"neoscrypt", neoscrypt_hash, 0x10000, 0, 0},
 	{"nist5", nist5_hash, 1, 0, 0},
@@ -150,6 +162,7 @@ YAAMP_ALGO g_algos[] =
 	{"phi1612", phi1612_hash, 1, 0, 0},
 	{"pipe", pipe_hash, 1,0,0},
 	{"polytimos", polytimos_hash, 1, 0, 0},
+	{"power2b", power2b_hash, 0x10000, 0, 0}, // MicroBitcoin (MBC), yespower 1.0 with BLAKE2b
 	{"quark", quark_hash, 1, 0, 0},
 	{"qubit", qubit_hash, 1, 0, 0},
 	{"rainforest", rainforest_hash, 1, 0, 0},
@@ -158,6 +171,8 @@ YAAMP_ALGO g_algos[] =
 	{"sha256", sha256_double_hash, 1, 0, 0},
 	{"sha256q", sha256q_hash, 1, 0, 0}, // sha256 4x
 	{"sha256t", sha256t_hash, 1, 0, 0}, // sha256 3x
+	{"sha3-256t", sha3_256t_hash, 1, 0, 0}, // BitcoinIII (BC3), FIPS SHA3-256 3x
+	{"sha512256d", sha512256d_hash, 1, 0, 0}, // Radiant (RXD), SHA-512/256 2x
 	{"sib", sib_hash, 1, 0, 0},
 	{"skein", skein_hash, 1, 0, 0},
 	{"skein2", skein2_hash, 1, 0, 0},
@@ -168,6 +183,7 @@ YAAMP_ALGO g_algos[] =
 	{"vanilla", blakecoin_hash, 1, 0 },
 	{"veltor", veltor_hash, 1, 0, 0},
 	{"velvet", velvet_hash, 0x10000, 0, 0},
+	{"verthash", verthash_hash, 0x100, 0, 0}, // Vertcoin (VTC), needs verthash.dat; miners use target factor 256
 	{"vitalium", vitalium_hash, 1, 0, 0},
 	{"whirlcoin", whirlpool_hash, 1, 0, sha256_hash_hex }, /* old sha merkleroot */
 	{"whirlpool", whirlpool_hash, 1, 0 }, /* sha256d merkleroot */
@@ -190,13 +206,43 @@ YAAMP_ALGO g_algos[] =
 	{"x22i", x22i_hash, 1, 0, 0},
   {"x25x", x25x_hash, 1, 0, 0},
 	{"xevan", xevan_hash, 0x100, 0, 0},
+	{"yescrypt", yescrypt_hash, 0x10000, 0, 0}, // GlobalBoost-Y (BSTY), Myriad (XMY)
+	{"yescryptR8", yescryptR8_hash, 0x10000, 0, 0}, // BitZeny (ZNY)
+	{"yescryptR16", yescryptR16_hash, 0x10000, 0, 0},
+	{"yescryptR32", yescryptR32_hash, 0x10000, 0, 0}, // WAVI, LuckyPepe (LPEPE)
 	{"yespower", yespower_hash, 0x10000, 0, 0},
+	{"yespowerADVC", yespowerADVC_hash, 0x10000, 0, 0}, // AdventureCoin (ADVC)
+	{"yespowerARWN", yespowerARWN_hash, 0x10000, 0, 0}, // Arowanacoin (ARWN)
+	{"yespowerIC", yespowerIC_hash, 0x10000, 0, 0}, // IsotopeC (IC)
+	{"yespowerLITB", yespowerLITB_hash, 0x10000, 0, 0}, // LightBit (LITB)
+	{"yespowerLTNCG", yespowerLTNCG_hash, 0x10000, 0, 0}, // Crionic (CRNC), LightningCash Gold
+	{"yespowerMGPC", yespowerMGPC_hash, 0x10000, 0, 0}, // Magpiecoin (MGPC)
+	{"yespowerR16", yespowerR16_hash, 0x10000, 0, 0}, // Yenten (YTN)
+	{"yespowerSUGAR", yespowerSUGAR_hash, 0x10000, 0, 0}, // Sugarchain (SUGAR)
+	{"yespowerTIDE", yespowerTIDE_hash, 0x10000, 0, 0}, // Tidecoin (TDC)
 	{"yespowerurx", yespowerurx_hash, 0x10000, 0, 0},
 	{"zr5", zr5_hash, 1, 0, 0},
 	{"", NULL, 0, 0},
 };
 
 YAAMP_ALGO *g_current_algo = NULL;
+
+// Default block version rules, can be overridden in the .conf ([STRATUM] powalgo,
+// version_mask, version_bits; version_mask = 0 disables the rule).
+static const struct {
+	const char *algo;
+	const char *gbt_powalgo;	// value of the "powalgo" getblocktemplate request key
+	uint32_t version_mask;
+	uint32_t version_bits;
+} g_algo_version_rules[] = {
+	// Litecoin Cash, Maza, Avian, Pulsar, Cascoin, Obidoge...: POW_TYPE = (nVersion >> 16) & 0xFF,
+	// MinotaurX = 1 (primitives/block.h GetPoWType, miner.cpp "nVersion |= powType << 16"),
+	// and getblocktemplate takes {"powalgo":"minotaurx"} (else the -powalgo default is used)
+	{ "minotaurx", "minotaurx", 0x00FF0000, 0x00010000 },
+	// Kylacoin, Lyncoin: blocks after nFlexhashHeight need nVersion & 0x8000 (pow.cpp, validation.cpp)
+	{ "flex", "", 0x00008000, 0x00008000 },
+	{ NULL, NULL, 0, 0 }
+};
 
 YAAMP_ALGO *stratum_find_algo(const char *name)
 {
@@ -259,6 +305,23 @@ int main(int argc, char **argv)
 	config_string(g_stratum_coin_exclude, sizeof(g_stratum_coin_exclude), ini, "WALLETS:exclude");
 
 	config_string(g_stratum_algo, sizeof(g_stratum_algo), ini, "STRATUM:algo");
+	config_string(g_verthash_datafile, sizeof(g_verthash_datafile), ini, "STRATUM:verthash_datafile");
+	if(!g_verthash_datafile[0])
+		strcpy(g_verthash_datafile, "/home/crypto-data/yiimp/site/stratum/verthash.dat");
+
+	for(int i=0; g_algo_version_rules[i].algo; i++) {
+		if(strcmp(g_algo_version_rules[i].algo, g_stratum_algo)) continue;
+		snprintf(g_stratum_gbt_powalgo, sizeof(g_stratum_gbt_powalgo), "%s", g_algo_version_rules[i].gbt_powalgo);
+		g_stratum_version_mask = g_algo_version_rules[i].version_mask;
+		g_stratum_version_bits = g_algo_version_rules[i].version_bits;
+	}
+	if(iniparser_getstring(ini, "STRATUM:powalgo", NULL))
+		config_string(g_stratum_gbt_powalgo, sizeof(g_stratum_gbt_powalgo), ini, "STRATUM:powalgo");
+	const char *vmask = iniparser_getstring(ini, "STRATUM:version_mask", NULL);
+	const char *vbits = iniparser_getstring(ini, "STRATUM:version_bits", NULL);
+	if(vmask) g_stratum_version_mask = (uint32_t) strtoul(vmask, NULL, 0);
+	if(vbits) g_stratum_version_bits = (uint32_t) strtoul(vbits, NULL, 0);
+	g_stratum_version_bits &= g_stratum_version_mask;
 	g_stratum_difficulty = iniparser_getdouble(ini, "STRATUM:difficulty", 16);
 	g_stratum_nicehash_difficulty = iniparser_getdouble(ini, "STRATUM:nicehash", 16);
 	g_stratum_min_diff = iniparser_getdouble(ini, "STRATUM:diff_min", g_stratum_difficulty/2);
@@ -289,6 +352,14 @@ int main(int argc, char **argv)
 
 	if(!g_current_algo) yaamp_error("invalid algo");
 	if(!g_current_algo->hash_function) yaamp_error("no hash function");
+
+	if(!strcmp(g_current_algo->name, "verthash")) {
+		// the ~1.2 GB data file is mapped once and shared by all threads
+		char err[1024];
+		stratumlogdate("loading and checking verthash data file %s\n", g_verthash_datafile);
+		if(verthash_load_datafile(g_verthash_datafile, 1, err, sizeof(err)))
+			yaamp_error(err);
+	}
 
 //	struct rlimit rlim_files = {0x10000, 0x10000};
 //	setrlimit(RLIMIT_NOFILE, &rlim_files);

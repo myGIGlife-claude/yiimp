@@ -16,7 +16,10 @@
 CC=gcc
 CXX=g++
 
-CFLAGS= -g -O2 -march=native
+# Portable by default so the binary keeps working if the VM moves to another
+# CPU model; build with "make MARCH=native" to tune for this machine.
+MARCH ?= x86-64-v2
+CFLAGS= -g -O2 -march=$(MARCH) -fno-strict-aliasing
 SQLFLAGS= `mysql_config --cflags`
 
 # Comment this line to disable address check on login,
@@ -67,13 +70,17 @@ $(OUTPUT): $(OBJECTS) $(LIBS)
 hashtest: hashtest.o $(LIBS)
 	$(CXX) $(LDFLAGS) hashtest.o $(LIBS) $(shell pkg-config --libs libcrypto 2>/dev/null || echo -lcrypto) -lpthread -lgmp -lm -o $@
 
+# verthash.dat generator for the verthash stratum: make verthash_gen && ./verthash_gen <file>
+verthash_gen: verthash_gen.c algos/verthash.h
+	$(CC) -O2 -std=gnu17 -o $@ verthash_gen.c $(shell pkg-config --libs libcrypto 2>/dev/null || echo -lcrypto)
+
 .cpp.o:
 	$(CXX) $(CFLAGS) $(CXXFLAGS) $(SQLFLAGS) -c $<
 
 -include $(OBJECTS:.o=.d) hashtest.d
 
 clean:
-	rm -f *.o *.d $(OUTPUT) hashtest
+	rm -f *.o *.d $(OUTPUT) hashtest verthash_gen
 	$(MAKE) -C algos clean
 	$(MAKE) -C sha3 clean
 	$(MAKE) -C iniparser clean

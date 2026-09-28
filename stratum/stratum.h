@@ -95,6 +95,9 @@ extern int g_stratum_max_ttf;
 extern bool g_stratum_reconnect;
 extern bool g_stratum_renting;
 extern bool g_stratum_segwit;
+extern char g_stratum_gbt_powalgo[64];
+extern uint32_t g_stratum_version_mask;
+extern uint32_t g_stratum_version_bits;
 extern int g_limit_txs_per_block;
 
 extern bool g_handle_haproxy_ips;
@@ -152,6 +155,7 @@ void scrypt_N_R_1_256(const char* input, char* output, uint32_t N, uint32_t R, u
 
 void sha256_hash_hex(const char *input, char *output, unsigned int len);
 void sha256_double_hash_hex(const char *input, char *output, unsigned int len);
+void sha3d_hash_hex(const char *input, char *output, unsigned int len);
 
 
 #include "algos/a5a.h"
@@ -207,6 +211,8 @@ void sha256_double_hash_hex(const char *input, char *output, unsigned int len);
 #include "algos/rainforest.h"
 #include "algos/sha256q.h"
 #include "algos/sha256t.h"
+#include "algos/sha512256d.h"
+#include "algos/sha3_256t.h"
 #include "algos/sib.h"
 #include "algos/skein.h"
 #include "algos/skein2.h"
@@ -216,6 +222,7 @@ void sha256_double_hash_hex(const char *input, char *output, unsigned int len);
 #include "algos/tribus.h"
 #include "algos/veltor.h"
 #include "algos/velvet.h"
+#include "algos/verthash.h"
 #include "algos/vitalium.h"
 #include "algos/whirlpool.h"
 #include "algos/whirlpoolx.h"
@@ -239,3 +246,5 @@ void sha256_double_hash_hex(const char *input, char *output, unsigned int len);
 #include "algos/xevan.h"
 #include "algos/yespower/yespower.h"
 #include "algos/zr5.h"
+#include "algos/ghostrider.h"
+#include "algos/flex.h"

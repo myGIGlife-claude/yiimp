@@ -1,4 +1,11 @@
-// Minotaur hash
+// Minotaur hash (Ring) and MinotaurX (LitecoinCash, Avian, Maza, Pulsar, ...)
+//
+// MinotaurX is the same torture garden with the last node (21) replaced by yespower 1.0
+// (N=2048, r=8, pers "et in arcadia ego"): Minotaur(begin, end, true) in
+// github.com/AvianNetwork/avian src/algo/minotaurx/minotaurx.h (MIT,
+// commit a05662398e70c1b8d0cc3eea47b50b3c75189c6e, Copyright (c) 2019-2021 The Litecoin Cash
+// Core developers, (c) 2022 The Avian Core developers), identical in litecoincash
+// src/crypto/minotaurx/minotaur.h.
 
 #include "minotaur.h"
 
@@ -23,6 +30,7 @@
 #include "sha3/sph_shabal.h"
 #include "sha3/sph_whirlpool.h"
 #include "sha3/sph_sha2.h"
+#include "yespower/yespower.h"
 
 #ifndef _MSC_VER
 #define _ALIGN(x) __attribute__ ((aligned(x)))
@@ -32,6 +40,12 @@
 
 // Config
 #define MINOTAUR_ALGO_COUNT	16
+// MinotaurX: index of the CPU-hard gate (must be MINOTAUR_ALGO_COUNT)
+#define MINOTAURX_YESPOWER	MINOTAUR_ALGO_COUNT
+
+static const yespower_params_t minotaurx_yespower_params = {
+    YESPOWER_1_0, 2048, 8, (const uint8_t *)"et in arcadia ego", 17
+};
 
 typedef struct TortureNode TortureNode;
 typedef struct TortureGarden TortureGarden;
@@ -148,6 +162,18 @@ void get_hash(void *output, const void *input, TortureGarden *garden, unsigned i
             sph_whirlpool(&garden->context_whirlpool, input, 64);
             sph_whirlpool_close(&garden->context_whirlpool, hash);
             break;
+        case MINOTAURX_YESPOWER: {
+            // yespower writes a 32-byte result into the 64-byte (zeroed) uint512
+            yespower_local_t local;
+            memset(hash, 0, sizeof(hash));
+            if (yespower_init_local(&local) == 0) {
+                if (yespower(&local, (const uint8_t *) input, 64, &minotaurx_yespower_params, (yespower_binary_t *) hash))
+                    memset(hash, 0xff, sizeof(hash));
+                yespower_free_local(&local);
+            } else
+                memset(hash, 0xff, sizeof(hash));
+            break;
+        }
     }
 
     // Output the hash
@@ -179,7 +205,7 @@ inline void link_nodes(TortureNode *parent, TortureNode *childLeft, TortureNode 
 }
 
 // Produce a 32-byte hash from 80-byte input data
-void minotaur_hash(const char* input, char* output, uint32_t len)
+static void minotaur_common(const char* input, char* output, uint32_t len, int minotaurx)
 {
     // Create torture garden nodes. Note that both sides of 19 and 20 lead to 21, and 21 has no children (to make traversal complete).
     // Every path through the garden stops at 7 nodes.
@@ -218,9 +244,23 @@ void minotaur_hash(const char* input, char* output, uint32_t len)
     for (int i = 0; i < 22; i++)
         garden.nodes[i].algo = hash[i] % MINOTAUR_ALGO_COUNT;
 
+    // Hardened garden gate of MinotaurX
+    if (minotaurx)
+        garden.nodes[21].algo = MINOTAURX_YESPOWER;
+
     // Send the initial hash through the torture garden
     traverse_garden(&garden, hash, &garden.nodes[0]);
 
 	// Truncate the result
-    memcpy(output, hash, len);
+    memcpy(output, hash, 32);
+}
+
+void minotaur_hash(const char* input, char* output, uint32_t len)
+{
+    minotaur_common(input, output, len, 0);
+}
+
+void minotaurx_hash(const char* input, char* output, uint32_t len)
+{
+    minotaur_common(input, output, len, 1);
 }

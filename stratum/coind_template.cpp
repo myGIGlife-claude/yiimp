@@ -37,6 +37,26 @@ void coind_getauxblock(YAAMP_COIND *coind)
 	json_value_free(json);
 }
 
+// Multi-algo chains select the PoW with bits of the block version (g_algo_version_rules
+// in stratum.cpp). The template of the daemon normally has them (getblocktemplate is
+// called with "powalgo"); if not, set them so shares and blocks use the right algo.
+static void template_apply_version_rule(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, uint32_t nVersion)
+{
+	if(!g_stratum_version_mask) return;
+	if((nVersion & g_stratum_version_mask) == g_stratum_version_bits) return;
+
+	static time_t last_warning = 0;
+	if(time(NULL) - last_warning > 600) {
+		stratumlog("%s: template version %08x has not the %s bits %08x (mask %08x), forcing them."
+			" Check that the daemon makes %s templates (e.g. powalgo=%s in its conf)\n",
+			coind->symbol, nVersion, g_stratum_algo, g_stratum_version_bits, g_stratum_version_mask,
+			g_stratum_algo, g_stratum_gbt_powalgo[0] ? g_stratum_gbt_powalgo : g_stratum_algo);
+		last_warning = time(NULL);
+	}
+	nVersion = (nVersion & ~g_stratum_version_mask) | g_stratum_version_bits;
+	sprintf(templ->version, "%08x", nVersion);
+}
+
 YAAMP_JOB_TEMPLATE *coind_create_template_memorypool(YAAMP_COIND *coind)
 {
 	json_value *json = rpc_call(&coind->rpc, "getmemorypool");
@@ -235,9 +255,32 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 
 	char params[512] = "[{}]";
 	if(!strcmp(coind->symbol, "PPC")) strcpy(params, "[]");
+	else if(coind->usemweb) strcpy(params, "[{\"rules\":[\"mweb\",\"segwit\"]}]");
 	else if(g_stratum_segwit) strcpy(params, "[{\"rules\":[\"segwit\"]}]");
 
+	// multi-algo chains (minotaurx): ask the template of our algo (bits, pow type in nVersion)
+	if(g_stratum_gbt_powalgo[0] && strcmp(params, "[]")) {
+		size_t l = strlen(params);
+		snprintf(params + l - 2, sizeof(params) - l + 2, "%s\"powalgo\":\"%s\"}]",
+			strcmp(params, "[{}]") ? "," : "", g_stratum_gbt_powalgo);
+	}
+
 	json_value *json = rpc_call(&coind->rpc, "getblocktemplate", params);
+
+	// Litecoin Core (0.21.2+) refuses getblocktemplate without the mweb rule:
+	// remember that and ask again.
+	json_value *json_first_result = json ? json_get_object(json, "result") : NULL;
+	if(json && !coind->usemweb && (!json_first_result || json_is_null(json_first_result))) {
+		json_value *json_error = json_get_object(json, "error");
+		const char *message = json_error ? json_get_string(json_error, "message") : NULL;
+		if(message && strstr(message, "mweb")) {
+			debuglog("%s requires the mweb rule, enabling MWEB\n", coind->symbol);
+			coind->usemweb = true;
+			json_value_free(json);
+			strcpy(params, "[{\"rules\":[\"mweb\",\"segwit\"]}]");
+			json = rpc_call(&coind->rpc, "getblocktemplate", params);
+		}
+	}
 	if(!json || json_is_null(json))
 	{
 		// coind_error() reset auto_ready, and DCR gbt can fail
@@ -299,6 +342,7 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 	templ->value = json_get_int(json_result, "coinbasevalue");
 	templ->height = json_get_int(json_result, "height");
 	sprintf(templ->version, "%08x", (unsigned int)json_get_int(json_result, "version"));
+	template_apply_version_rule(coind, templ, (uint32_t) json_get_int(json_result, "version"));
 	sprintf(templ->ntime, "%08x", (unsigned int)json_get_int(json_result, "curtime"));
 
 	const char *bits = json_get_string(json_result, "bits");
@@ -308,6 +352,18 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 	const char *flags = json_get_string(json_coinbaseaux, "flags");
 	strcpy(templ->flags, flags ? flags : "");
 	strcpy(templ->priceinfo, "");
+
+	// Litecoin MWEB extension block, serialized after the transactions
+	const char *mweb = json_get_string(json_result, "mweb");
+	if (mweb && strlen(mweb)) {
+		if (!ishexa((char *)mweb, strlen(mweb)) || strlen(mweb) % 2) {
+			coind_error(coind, "getblocktemplate mweb");
+			delete templ;
+			json_value_free(json);
+			return NULL;
+		}
+		templ->mweb.push_back(mweb);
+	}
 
 	// LBC Claim Tree (with wallet gbt patch)
 	const char *claim = json_get_string(json_result, "claimtrie");

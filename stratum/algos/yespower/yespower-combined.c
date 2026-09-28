@@ -9,6 +9,8 @@
 #include "yespower.h"
 #include "insecure_memzero.h"
 
+#include <sha3/blake2b.h>
+
 #ifdef __ICC
 /* Miscompile with icc 14.0.0 (at least), so don't use restrict there */
 #define restrict
@@ -620,6 +622,103 @@ cleanup:
 	insecure_memzero(&u, sizeof(u));
 }
 
+/*
+ * BLAKE2b based primitives of the "yespower-b2b" variant (power2b,
+ * MicroBitcoin): BLAKE2b-256 replaces SHA-256 in the prehash, the PBKDF2 and
+ * the final HMAC.  Note that the HMAC uses a 64-byte block (not the 128-byte
+ * BLAKE2b block) and hashes keys longer than 64 bytes to 32 bytes, exactly as
+ * in MicroBitcoin's src/crypto/blake2b.c (MIT), which defines the consensus.
+ */
+typedef struct {
+	blake2b_ctx inner;
+	blake2b_ctx outer;
+} hmac_blake2b_ctx;
+
+static void blake2b_256(void *out, const void *in, size_t inlen)
+{
+	blake2b_ctx ctx;
+	blake2b_init(&ctx, 32, NULL, 0);
+	blake2b_update(&ctx, in, inlen);
+	blake2b_final(&ctx, out);
+}
+
+static void hmac_blake2b_init(hmac_blake2b_ctx *hctx, const void *_key, size_t keylen)
+{
+	const uint8_t *key = _key;
+	uint8_t keyhash[32];
+	uint8_t pad[64];
+	size_t i;
+
+	if (keylen > 64) {
+		blake2b_256(keyhash, key, keylen);
+		key = keyhash;
+		keylen = 32;
+	}
+
+	blake2b_init(&hctx->inner, 32, NULL, 0);
+	memset(pad, 0x36, 64);
+	for (i = 0; i < keylen; i++)
+		pad[i] ^= key[i];
+	blake2b_update(&hctx->inner, pad, 64);
+
+	blake2b_init(&hctx->outer, 32, NULL, 0);
+	memset(pad, 0x5c, 64);
+	for (i = 0; i < keylen; i++)
+		pad[i] ^= key[i];
+	blake2b_update(&hctx->outer, pad, 64);
+
+	insecure_memzero(keyhash, sizeof(keyhash));
+	insecure_memzero(pad, sizeof(pad));
+}
+
+static void hmac_blake2b_final(hmac_blake2b_ctx *hctx, uint8_t digest[32])
+{
+	uint8_t ihash[32];
+	blake2b_final(&hctx->inner, ihash);
+	blake2b_update(&hctx->outer, ihash, 32);
+	blake2b_final(&hctx->outer, digest);
+	insecure_memzero(ihash, sizeof(ihash));
+}
+
+static void hmac_blake2b_buf(const void *key, size_t keylen,
+    const void *in, size_t inlen, uint8_t digest[32])
+{
+	hmac_blake2b_ctx hctx;
+	hmac_blake2b_init(&hctx, key, keylen);
+	blake2b_update(&hctx.inner, in, inlen);
+	hmac_blake2b_final(&hctx, digest);
+	insecure_memzero(&hctx, sizeof(hctx));
+}
+
+/* PBKDF2 with the HMAC above, c = 1 only (all yespower needs) */
+static void pbkdf2_blake2b_1(const uint8_t *passwd, size_t passwdlen,
+    const uint8_t *salt, size_t saltlen, uint8_t *buf, size_t dkLen)
+{
+	hmac_blake2b_ctx PShctx, hctx;
+	uint8_t ivec[4];
+	uint8_t T[32];
+	size_t i, clen;
+
+	hmac_blake2b_init(&PShctx, passwd, passwdlen);
+	blake2b_update(&PShctx.inner, salt, saltlen);
+
+	for (i = 0; i * 32 < dkLen; i++) {
+		be32enc(ivec, (uint32_t)(i + 1));
+		memcpy(&hctx, &PShctx, sizeof(hctx));
+		blake2b_update(&hctx.inner, ivec, 4);
+		hmac_blake2b_final(&hctx, T);
+
+		clen = dkLen - i * 32;
+		if (clen > 32)
+			clen = 32;
+		memcpy(&buf[i * 32], T, clen);
+	}
+
+	insecure_memzero(&PShctx, sizeof(PShctx));
+	insecure_memzero(&hctx, sizeof(hctx));
+	insecure_memzero(T, sizeof(T));
+}
+
 static void blkcpy(uint32_t *dst, const uint32_t *src, size_t count)
 {
 	do {
@@ -1012,14 +1111,15 @@ static void smix(uint32_t *B, size_t r, uint32_t N,
 }
 
 /**
- * yespower(local, src, srclen, params, dst):
+ * yespower_impl(local, src, srclen, params, dst, b2b):
  * Compute yespower(src[0 .. srclen - 1], N, r), to be checked for "< target".
+ * b2b selects the BLAKE2b variant ("yespower-b2b", yespower 1.0 only).
  *
  * Return 0 on success; or -1 on error.
  */
-int yespower(yespower_local_t *local,
+static int yespower_impl(yespower_local_t *local,
     const uint8_t *src, size_t srclen,
-    const yespower_params_t *params, yespower_binary_t *dst)
+    const yespower_params_t *params, yespower_binary_t *dst, int b2b)
 {
 	yespower_version_t version = params->version;
 	uint32_t N = params->N;
@@ -1036,7 +1136,7 @@ int yespower(yespower_local_t *local,
 	if ((version != YESPOWER_0_5 && version != YESPOWER_1_0) ||
 	    N < 1024 || N > 512 * 1024 || r < 8 || r > 32 ||
 	    (N & (N - 1)) != 0 || r < rmin ||
-	    (!pers && perslen)) {
+	    (!pers && perslen) || (b2b && version != YESPOWER_1_0)) {
 		errno = EINVAL;
 		return -1;
 	}
@@ -1071,7 +1171,10 @@ int yespower(yespower_local_t *local,
 	ctx.Smask = Swidth_to_Smask(ctx.Swidth);
 	ctx.w = 0;
 
-	SHA256_Buf(src, srclen, (uint8_t *)sha256);
+	if (b2b)
+		blake2b_256(sha256, src, srclen);
+	else
+		SHA256_Buf(src, srclen, (uint8_t *)sha256);
 
 	if (version != YESPOWER_0_5) {
 		if (pers) {
@@ -1083,8 +1186,12 @@ int yespower(yespower_local_t *local,
 	}
 
 	/* 1: (B_0 ... B_{p-1}) <-- PBKDF2(P, S, 1, p * MFLen) */
-	PBKDF2_SHA256((uint8_t *)sha256, sizeof(sha256),
-	    src, srclen, 1, (uint8_t *)B, B_size);
+	if (b2b)
+		pbkdf2_blake2b_1((uint8_t *)sha256, sizeof(sha256),
+		    src, srclen, (uint8_t *)B, B_size);
+	else
+		PBKDF2_SHA256((uint8_t *)sha256, sizeof(sha256),
+		    src, srclen, 1, (uint8_t *)B, B_size);
 
 	blkcpy(sha256, B, sizeof(sha256) / sizeof(sha256[0]));
 
@@ -1101,6 +1208,9 @@ int yespower(yespower_local_t *local,
 			    (uint8_t *)sha256);
 			SHA256_Buf(sha256, sizeof(sha256), (uint8_t *)dst);
 		}
+	} else if (b2b) {
+		hmac_blake2b_buf((uint8_t *)B + B_size - 64, 64,
+		    sha256, sizeof(sha256), (uint8_t *)dst);
 	} else {
 		HMAC_SHA256_Buf((uint8_t *)B + B_size - 64, 64,
 		    sha256, sizeof(sha256), (uint8_t *)dst);
@@ -1121,11 +1231,24 @@ free_V:
 	return retval;
 }
 
+int yespower(yespower_local_t *local,
+    const uint8_t *src, size_t srclen,
+    const yespower_params_t *params, yespower_binary_t *dst)
+{
+	return yespower_impl(local, src, srclen, params, dst, 0);
+}
+
 int yespower_tls(const uint8_t *src, size_t srclen,
     const yespower_params_t *params, yespower_binary_t *dst)
 {
 /* The reference implementation doesn't use thread-local storage */
-	return yespower(NULL, src, srclen, params, dst);
+	return yespower_impl(NULL, src, srclen, params, dst, 0);
+}
+
+int yespower_b2b_tls(const uint8_t *src, size_t srclen,
+    const yespower_params_t *params, yespower_binary_t *dst)
+{
+	return yespower_impl(NULL, src, srclen, params, dst, 1);
 }
 
 int yespower_init_local(yespower_local_t *local)
@@ -1143,26 +1266,89 @@ int yespower_free_local(yespower_local_t *local)
 	return 0;
 }
 
-void yespower_hash(const char* input, char* output, uint32_t len)
+
+/*
+ * yiimp stratum wrappers: one generic function, the parameters of each algo
+ * are taken from the coin's own source (primitives/block.cpp GetPoWHash).
+ *
+ * The yescrypt family is computed with yespower 0.5, which is the
+ * cryptocurrency subset of yescrypt 0.5 (flags YESCRYPT_RW|YESCRYPT_PWXFORM,
+ * p = 1, t = 0, 32-byte output) as used by GlobalBoost-Y, BitZeny, Yenten
+ * (before yespowerR16) and WAVI.  yescrypt 0.5 always ends with the SCRAM
+ * "ClientKey" step HMAC-SHA256(dk, key): the key is "Client Key" for R8/R16,
+ * "WaviBanana" for R32 and the salt (= the block header) for plain yescrypt.
+ */
+static void yespower_generic(const char *input, char *output, uint32_t len,
+    yespower_version_t version, uint32_t N, uint32_t r,
+    const char *pers, size_t perslen, int b2b)
 {
-    yespower_params_t yespower_1_0_sugarchain = {
-        .version = YESPOWER_1_0,
-        .N = 2048,
-        .r = 32,
-        .pers = (const uint8_t *)"Satoshi Nakamoto 31/Oct/2008 Proof-of-work is essentially one-CPU-one-vote",
-        .perslen = 74
-    };
-    yespower_tls(input, 80, &yespower_1_0_sugarchain, (yespower_binary_t *)output);
+	yespower_params_t params = {
+		.version = version,
+		.N = N,
+		.r = r,
+		.pers = (const uint8_t *)pers,
+		.perslen = pers ? perslen : 0
+	};
+
+	if (yespower_impl(NULL, (const uint8_t *)input, len, &params,
+	    (yespower_binary_t *)output, b2b))
+		memset(output, 0xff, sizeof(yespower_binary_t)); /* never a valid share */
 }
 
-void yespowerurx_hash(const char* input, char* output, uint32_t len)
+/* personalization string, length without the terminating nul */
+#define PERS(s) (s), (sizeof(s) - 1)
+
+/* yespower 1.0, N=2048 r=32 (the defaults), plus a personalization */
+#define YESPOWER_2048_32(name, ...) \
+void name##_hash(const char *input, char *output, uint32_t len) { \
+	yespower_generic(input, output, len, YESPOWER_1_0, 2048, 32, __VA_ARGS__, 0); \
+}
+
+/* note: "yespower" is the Sugarchain personalization (historical yiimp choice) */
+YESPOWER_2048_32(yespower, PERS("Satoshi Nakamoto 31/Oct/2008 Proof-of-work is essentially one-CPU-one-vote"))
+YESPOWER_2048_32(yespowerSUGAR, PERS("Satoshi Nakamoto 31/Oct/2008 Proof-of-work is essentially one-CPU-one-vote"))
+YESPOWER_2048_32(yespowerurx, PERS("UraniumX"))
+YESPOWER_2048_32(yespowerADVC, PERS("Let the quest begin"))
+YESPOWER_2048_32(yespowerLTNCG, PERS("LTNCGYES"))
+YESPOWER_2048_32(yespowerMGPC, PERS("Magpies are birds of the Corvidae family."))
+YESPOWER_2048_32(yespowerARWN, PERS("ARWN"))
+YESPOWER_2048_32(yespowerIC, PERS("IsotopeC"))
+/* LightBit and CPUchain pass perslen = 73, which truncates their strings */
+YESPOWER_2048_32(yespowerLITB, "LITBpower: The number of LITB working or available for proof-of-work mining", 73)
+YESPOWER_2048_32(cpupower, "CPUpower: The number of CPU working or available for proof-of-work mining", 73)
+
+void yespowerR16_hash(const char *input, char *output, uint32_t len)
 {
-    yespower_params_t yespower_1_0_uraniumx = {
-        .version = YESPOWER_1_0,
-        .N = 2048,
-        .r = 32,
-        .pers = (const uint8_t *)"UraniumX",
-        .perslen = 8 
-    };
-    yespower_tls( input, 80, &yespower_1_0_uraniumx, (yespower_binary_t *)output);
+	yespower_generic(input, output, len, YESPOWER_1_0, 4096, 16, NULL, 0, 0);
+}
+
+void yespowerTIDE_hash(const char *input, char *output, uint32_t len)
+{
+	yespower_generic(input, output, len, YESPOWER_1_0, 2048, 8, NULL, 0, 0);
+}
+
+void power2b_hash(const char *input, char *output, uint32_t len)
+{
+	yespower_generic(input, output, len, YESPOWER_1_0, 2048, 32,
+	    PERS("Now I am become Death, the destroyer of worlds"), 1);
+}
+
+void yescrypt_hash(const char *input, char *output, uint32_t len)
+{
+	yespower_generic(input, output, len, YESPOWER_0_5, 2048, 8, input, len, 0);
+}
+
+void yescryptR8_hash(const char *input, char *output, uint32_t len)
+{
+	yespower_generic(input, output, len, YESPOWER_0_5, 2048, 8, PERS("Client Key"), 0);
+}
+
+void yescryptR16_hash(const char *input, char *output, uint32_t len)
+{
+	yespower_generic(input, output, len, YESPOWER_0_5, 4096, 16, PERS("Client Key"), 0);
+}
+
+void yescryptR32_hash(const char *input, char *output, uint32_t len)
+{
+	yespower_generic(input, output, len, YESPOWER_0_5, 4096, 32, PERS("WaviBanana"), 0);
 }
