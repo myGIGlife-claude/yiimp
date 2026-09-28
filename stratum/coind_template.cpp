@@ -571,7 +571,9 @@ bool coind_create_job(YAAMP_COIND *coind, bool force)
 
 	// DCR: dcrd only provides getwork
 
-	if (coind->usegetwork && strcmp(coind->rpcencoding, "DCR") == 0)
+	if (g_protocol && g_protocol->create_template)
+		templ = g_protocol->create_template(coind); // daemons that are not Bitcoin derived
+	else if (coind->usegetwork && strcmp(coind->rpcencoding, "DCR") == 0)
 		templ = decred_create_worktemplate(coind);
 	else
 		templ = coind_create_template(coind);
@@ -621,6 +623,7 @@ bool coind_create_job(YAAMP_COIND *coind, bool force)
 	uint64_t coin_target = decode_compact(templ->nbits);
 	if (templ->nbits && !coin_target) coin_target = 0xFFFF000000000000ULL; // under decode_compact min diff
 	coind->difficulty = target_to_diff(coin_target);
+	if (templ->proto_netdiff > 0) coind->difficulty = templ->proto_netdiff; // in the units of the daemon
 
 //	stratumlog("%s %d diff %g %llx %s\n", coind->name, height, coind->difficulty, coin_target, templ->nbits);
 

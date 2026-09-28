@@ -1,6 +1,12 @@
 # MultiPool / YiiMP modernization: handoff for the next Claude Code session
 
-Last updated: 2026-09-28 (Phase 2 finished, PRs open). Written by the Claude Code session that did this
+Last updated: 2026-09-28 (Phase 3 finished on `claude/phase3`, PR open).
+
+> **Next session, first task:** the owner will test Monero payouts
+> (web cron -> monero-wallet-rpc `transfer_split`) with you next week.
+> Payouts ran once on regtest only (mature_time backdated in SQL), so treat
+> them as lightly tested. See `docs/BRIDGE.md` and the Phase 3 notes below.
+> Merge order: PRs #3, then #4, then the Phase 3 PR, and only when the owner says so. Written by the Claude Code session that did this
 work, so another session can continue where it stopped. Read it all before
 changing anything.
 
@@ -313,6 +319,23 @@ Approved design, as proposed to the owner:
   - Block template from monerod `get_block_template` (reserved offset for the extranonce), submission with `submit_block`.
   - The xmrig `login`/`job`/`submit` protocol.
 - The research list of Category C coins is in `docs/handoff/notes/algo_research.md`.
+
+## 6a. Phase 3 status (2026-09-28): randomx done on `claude/phase3`
+
+- Stratum: `protocol_randomx.cpp` (monerod get_block_template/submit_block, xmrig
+  protocol, RandomX light mode from `algos/randomx`, tevador/RandomX 7607fb2 BSD-3),
+  `algos/cryptonote_block.c`, new optional protocol hooks (create_template, request,
+  send_error, coind_config, coind_init), curl url path + digest auth. Port 9701.
+- KATs: official RandomX vectors (v1 and v2), XMR mainnet block 3772000 (block id + PoW).
+  hashtest otherwise identical to claude/phase2 (gcc 13 and 14).
+- Web: XMR adapter rewritten for monerod/monero-wallet-rpc 0.18 (`$configWalletRPC` in
+  serverconfig), coins.php XMR branch, randomx tables (factor 0.001, constant 2^10).
+- Contract doc: `docs/BRIDGE.md`. Protocol test client: `tools/randomx/rxclient.py`.
+- Tested (monerod/wallet-rpc 0.18.5.1 regtest, xmrig 6.26.0): ~52 blocks accepted and
+  confirmed, new -> immature -> generate, 2 orphans after pop_blocks detected, one
+  transfer_split payout received by the miner wallet (earnings mature_time backdated).
+- Not done: RandomX variants (RandomWOW, rx/arq: compile-time RandomX configs), full-memory
+  (dataset) verification mode, installer changes, live mainnet mining.
 
 ## 7. Recreating the test environment (the container is ephemeral)
 

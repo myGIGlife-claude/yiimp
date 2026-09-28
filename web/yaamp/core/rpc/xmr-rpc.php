@@ -1,9 +1,14 @@
 <?php
-/*
-if (!function_exists('debuglog')) {
-	function debuglog($x) { echo "$x\n"; }
-}
-*/
+/**
+ * JSON-RPC client of the CryptoNote daemons and wallets (monerod, monero-wallet-rpc and their
+ * forks), used by the WalletRPC adapter (rpcencoding XMR).
+ *
+ * - JSON-RPC 2.0 methods go to /json_rpc with named params (an object), the result is returned
+ *   as an array, or false with $this->error set.
+ * - A few daemon methods have their own url (get_transactions, get_info...): rpcget/rpcpost.
+ * - With a username (monerod --rpc-login, monero-wallet-rpc --rpc-login), curl negotiates the
+ *   HTTP digest (or basic) authentication.
+ */
 class CryptoRPC
 {
 	// Configuration options
@@ -35,252 +40,118 @@ class CryptoRPC
 
 	function __call($method, $params=array())
 	{
+		switch ($method) {
+			case 'getheight':
+			case 'getinfo':
+				return $this->rpcget($method, $params);
+
+			case 'gettransactions': // decodetransaction
+			case 'get_transactions':
+			case 'sendrawtransaction':
+				return $this->rpcpost($method, $params);
+		}
+
+		// named params: __call put them in the $params array
+		if (count($params) == 1 && (is_array($params[0]) || is_object($params[0]))) {
+			$params = (object) $params[0];
+		} else if (count($params) == 1 && is_string($params[0]) && json_decode($params[0]) !== null) {
+			$params = json_decode($params[0]); // json string
+		} else if (empty($params)) {
+			$params = new stdClass;
+		}
+
+		$data = array(
+			'jsonrpc' => '2.0',
+			'id'      => $this->id++,
+			'method'  => $method,
+			'params'  => $params,
+		);
+
+		$this->request("{$this->proto}://{$this->host}:{$this->port}/{$this->url}", json_encode($data));
+		if ($this->error) {
+			return false;
+		}
+		if (!is_array($this->response) || !array_key_exists('result', $this->response)) {
+			$this->error = 'invalid answer';
+			return false;
+		}
+		return $this->response['result'];
+	}
+
+	// run the request (POST if $postdata is not null), set response/status/error
+	private function request($url, $postdata = null)
+	{
 		$this->status       = null;
 		$this->error        = null;
 		$this->raw_response = null;
 		$this->response     = null;
 
-		switch ($method) {
-			case 'getheight':
-			case 'getinfo':
-			case 'start_mining':
-			case 'stop_mining':
-				return $this->rpcget($method, $params);
-
-			case 'gettransactions': // decodetransaction
-			case 'sendrawtransaction':
-				return $this->rpcpost($method, $params);
-
-			// binary stuff
-			case 'getblocks':
-			case 'get_o_indexes':
-			case 'getrandom_outs':
-			case 'get_tx_pool':
-			case 'set_maintainers_info':
-			case 'check_keyimages':
-				return $this->rpcget($method.'.bin', $params);
-
-			// queries with named params
-			case 'getblocktemplate':
-			case 'get_payments':
-			case 'incoming_transfers':
-				if (count($params) == 1) {
-					// __call put all params in array $params
-					$pop = array_shift($params);
-					if (is_object($pop) || is_array($pop)) {
-						$params = (object) $pop;
-					}
-				}
-				break;
-			case 'transfer':
-			case 'transfer_original':
-				if (is_string($params[0])) { // assume json
-					//debuglog("params: ".$params[0]);
-					$params = array(json_decode($params[0]));
-				}
-				else if (is_array($params) && count($params) == 1) {
-					// __call put all params in array $params
-					$pop = array_shift($params);
-					if (is_object($pop) || is_array($pop)) {
-						$params = (object) $pop;
-					}
-				}
-				break;
-		}
-
-		//debuglog(json_encode($params));
-
-		$data = array();
-		$data['method'] = $method;
-		$data['params'] = $params;
-
-		$data['id'] = $this->id++;
-		$data['jsonrpc'] = '2.0';
-
-		// Build the cURL session, to check later {$this->username}:{$this->password}@
-		$curl = curl_init("{$this->proto}://{$this->host}:{$this->port}/{$this->url}");
-
+		$curl = curl_init($url);
 		$options = array(
 			CURLOPT_CONNECTTIMEOUT => 10,
-			CURLOPT_TIMEOUT        => 30,
+			CURLOPT_TIMEOUT        => 60,
 			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_FOLLOWLOCATION => true,
-			CURLOPT_MAXREDIRS      => 10,
-			CURLOPT_POST           => true,
-			CURLOPT_HTTPHEADER     => array('Content-Type: application/json'),
+			CURLOPT_FOLLOWLOCATION => false,
 		);
-
+		if ($postdata !== null) {
+			$options[CURLOPT_POST]       = true;
+			$options[CURLOPT_POSTFIELDS] = $postdata;
+			$options[CURLOPT_HTTPHEADER] = array('Content-Type: application/json');
+		}
+		if (!empty($this->username)) {
+			$options[CURLOPT_USERPWD]  = "{$this->username}:{$this->password}";
+			$options[CURLOPT_HTTPAUTH] = CURLAUTH_DIGEST | CURLAUTH_BASIC;
+		}
 		curl_setopt_array($curl, $options);
-		$postdata = json_encode($data);
-		curl_setopt($curl, CURLOPT_POSTFIELDS, $postdata);
-		//debuglog($postdata);
 
-		// Execute the request and decode to an array
 		$this->raw_response = curl_exec($curl);
-		//debuglog($this->raw_response);
-
-		$this->response = json_decode($this->raw_response, TRUE);
-
-		// If the status is not 200, something is wrong
 		$this->status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-
-		// If there was no error, this will be an empty string
 		$curl_error = curl_error($curl);
-
+		if (PHP_VERSION_ID < 80000) curl_close($curl);
 
 		if (!empty($curl_error)) {
 			$this->error = $curl_error;
+			return;
 		}
 
-		if (isset($this->response['error']) && $this->response['error']) {
-			$this->error = strtolower($this->response['error']['message']);
-		}
+		$this->response = json_decode((string) $this->raw_response, true);
 
-		elseif ($this->status != 200) {
-			// If didn't return a nice error message, we need to make our own
+		if (is_array($this->response) && !empty($this->response['error'])) {
+			$error = $this->response['error'];
+			$this->error = strtolower(is_array($error) ? (string) arraySafeVal($error, 'message', 'error') : (string) $error);
+		}
+		else if ($this->status != 200) {
 			switch ($this->status) {
-				case 400:
-					$this->error = 'HTTP_BAD_REQUEST';
-					break;
-				case 401:
-					$this->error = 'HTTP_UNAUTHORIZED';
-					break;
-				case 403:
-					$this->error = 'HTTP_FORBIDDEN';
-					break;
-				case 404:
-					$this->error = 'HTTP_NOT_FOUND';
-					break;
+				case 400: $this->error = 'HTTP_BAD_REQUEST'; break;
+				case 401: $this->error = 'HTTP_UNAUTHORIZED'; break;
+				case 403: $this->error = 'HTTP_FORBIDDEN'; break;
+				case 404: $this->error = 'HTTP_NOT_FOUND'; break;
+				default:  $this->error = "HTTP_ERROR_{$this->status}";
 			}
 		}
-
-		if ($this->error) {
-			return FALSE;
+		else if (!is_array($this->response)) {
+			$this->error = 'invalid json answer';
 		}
-
-		return $this->response['result'];
 	}
 
-	// these methods use other urls
+	// methods of the daemon with their own url (GET)
 	function rpcget($url, $params=array())
 	{
 		$url = "{$this->proto}://{$this->host}:{$this->port}/{$url}";
-		if (!empty($params)) {
-			$url = "?ts=".time();
-			foreach ($params as $key => $val) {
-				$url .= '&'.urlencode($key).'='.urlencode($val);
-			}
+		if (!empty($params) && is_array(reset($params))) {
+			$url .= '?'.http_build_query(reset($params));
 		}
-		$curl = curl_init($url);
-
-		$options = array(
-			CURLOPT_CONNECTTIMEOUT => 10,
-			CURLOPT_TIMEOUT        => 30,
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_FOLLOWLOCATION => true,
-			CURLOPT_MAXREDIRS      => 10,
-			CURLOPT_POST           => false,
-		);
-		curl_setopt_array($curl, $options);
-		$this->raw_response = curl_exec($curl);
-		$this->status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-
-		// If there was no error, this will be an empty string
-		$curl_error = curl_error($curl);
-
-		//debuglog($this->response);
-
-		if (!empty($curl_error)) {
-			$this->error = $curl_error;
-		}
-
-		if (isset($this->response['error']) && $this->response['error']) {
-			$this->error = strtolower($this->response['error']['message']);
-		}
-
-		elseif ($this->status != 200) {
-			// If didn't return a nice error message, we need to make our own
-			switch ($this->status) {
-				case 400:
-					$this->error = 'HTTP_BAD_REQUEST';
-					break;
-				case 401:
-					$this->error = 'HTTP_UNAUTHORIZED';
-					break;
-				case 403:
-					$this->error = 'HTTP_FORBIDDEN';
-					break;
-				case 404:
-					$this->error = 'HTTP_NOT_FOUND';
-					break;
-			}
-		} else {
-			// getinfo
-			$this->response = json_decode($this->raw_response, TRUE);
-		}
-
-		return $this->response;
+		$this->request($url);
+		return $this->error ? false : $this->response;
 	}
 
-	// sendrawtransaction (untested yet)
+	// methods of the daemon with their own url (POST of a json object)
 	function rpcpost($url, $params=array())
 	{
-		$curl = curl_init("{$this->proto}://{$this->host}:{$this->port}/{$url}");
-
-		$options = array(
-			CURLOPT_CONNECTTIMEOUT => 10,
-			CURLOPT_TIMEOUT        => 30,
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_FOLLOWLOCATION => true,
-			CURLOPT_MAXREDIRS      => 10,
-			CURLOPT_POST           => true,
-			CURLOPT_HTTPHEADER     => array('Content-Type: application/json'),
-		);
-		curl_setopt_array($curl, $options);
-
 		$pop = array_pop($params);
-		if (is_object($pop) || is_array($pop)) {
-			$params = (object) $pop;
-		}
-		curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($params));
-
-		$this->raw_response = curl_exec($curl);
-		$this->status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-
-		// If there was no error, this will be an empty string
-		$curl_error = curl_error($curl);
-
-
-		if (!empty($curl_error)) {
-			$this->error = $curl_error;
-		}
-
-		if (isset($this->response['error']) && $this->response['error']) {
-			$this->error = strtolower($this->response['error']['message']);
-		}
-
-		elseif ($this->status != 200) {
-			// If didn't return a nice error message, we need to make our own
-			switch ($this->status) {
-				case 400:
-					$this->error = 'HTTP_BAD_REQUEST';
-					break;
-				case 401:
-					$this->error = 'HTTP_UNAUTHORIZED';
-					break;
-				case 403:
-					$this->error = 'HTTP_FORBIDDEN';
-					break;
-				case 404:
-					$this->error = 'HTTP_NOT_FOUND';
-					break;
-			}
-		} else {
-			// getinfo
-			$this->response = json_decode($this->raw_response, TRUE);
-		}
-
-		return $this->response;
+		$postdata = json_encode((is_object($pop) || is_array($pop)) ? (object) $pop : new stdClass);
+		$this->request("{$this->proto}://{$this->host}:{$this->port}/{$url}", $postdata);
+		return $this->error ? false : $this->response;
 	}
 
 }

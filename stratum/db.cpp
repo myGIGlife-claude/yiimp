@@ -330,6 +330,10 @@ void db_update_coinds(YAAMP_DB *db)
 			coind->rpc.curl = 1;
 #endif
 
+		// daemons that are not Bitcoin derived: rpc path, auth... (protocol.h)
+		if(g_protocol && g_protocol->coind_config)
+			g_protocol->coind_config(coind);
+
 		// old dash masternodes coins..
 		if(coind->hasmasternodes) {
 			if (strcmp(coind->symbol, "ALQO") == 0) coind->oldmasternodes = true;

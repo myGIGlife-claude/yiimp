@@ -78,6 +78,7 @@ function yaamp_get_algos()
         'quark',
         'qubit',
         'rainforest',
+        'randomx',
         'sccpow',
         'scrypt',
         'scryptn',
@@ -167,6 +168,7 @@ function yaamp_algo_mBTC_factor($algo)
         case 'equihash':
         case 'equihash144':
         case 'equihash192':
+        case 'randomx':
             return 0.001;
         default:
             return 1;
@@ -295,6 +297,7 @@ function getAlgoColors($algo)
         'quark' => '#c0c0c0',
         'qubit' => '#d0a0f0',
         'rainforest' => '#d0f0a0',
+        'randomx' => '#ff8040',
         'sccpow' => '#80e0c0',
         'scrypt' => '#c0c0e0',
         'scryptn' => '#d0d0d0',
@@ -440,6 +443,7 @@ function getAlgoPort($algo)
         'quark' => 4033,
         'qubit' => 4733,
         'rainforest' => 7443,
+        'randomx' => 9701,
         'sccpow' => 9505,
         'scrypt' => 3433,
         'scryptn' => 4333,
@@ -563,6 +567,10 @@ function yaamp_hashrate_constant($algo = null)
             // Sol/s: a share of difficulty 1 (target 0x0007ffff...) is 8192
             // solutions; same 1.024 (k) convention as the 2^42 below
             return pow(2, 23);
+        case 'randomx':
+            // H/s: a share of difficulty D is D hashes (CryptoNote), with the same
+            // 1.024 (k) convention as the 2^42 below
+            return pow(2, 10);
         default:
             return pow(2, 42); // 0x400 00000000
     }

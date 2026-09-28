@@ -7,6 +7,7 @@ const YAAMP_PROTOCOL *g_protocol = NULL;
 extern const YAAMP_PROTOCOL g_protocol_kawpow;
 extern const YAAMP_PROTOCOL g_protocol_equihash;
 extern const YAAMP_PROTOCOL g_protocol_resistance;
+extern const YAAMP_PROTOCOL g_protocol_randomx;
 
 // algo -> protocol family; algos not listed use the Bitcoin stratum (g_protocol NULL)
 static const struct {
@@ -23,6 +24,7 @@ static const struct {
 	{ "equihash144", &g_protocol_equihash },   // 144,5: BTG, BTCZ, GLINK...
 	{ "equihash192", &g_protocol_equihash },   // 192,7: YEC, ZCL, ZER...
 	{ "yespowerRES", &g_protocol_resistance }, // RES
+	{ "randomx",     &g_protocol_randomx },    // XMR (monerod)
 	{ NULL, NULL }
 };
 
@@ -194,15 +196,7 @@ bool protocol_submit_block(YAAMP_CLIENT *client, YAAMP_JOB *job, const char *hea
 	if (templ->nbits && !coin_target) coin_target = 0xFFFF000000000000ULL;
 
 	if (b) {
-		debuglog("*** ACCEPTED %s %d (diff %g) by %s (id: %d)\n", coind->name, templ->height,
-			diff_user, client->sock->ip, client->userid);
-		job->block_found = true;
-
-		block_add(client->userid, client->workerid, coind->id, templ->height,
-			target_to_diff(coin_target), diff_user, blockid, powhash, templ->has_segwit_txs);
-
-		if (!strcmp(coind->lastnotifyhash, blockid))
-			block_confirm(coind->id, blockid);
+		protocol_block_accepted(client, job, target_to_diff(coin_target), diff_user, blockid, powhash);
 	} else {
 		debuglog("*** REJECTED :( %s block %d %d txs\n", coind->name, templ->height, templ->txcount);
 		rejectlog("REJECTED %s block %d\n", coind->symbol, templ->height);
@@ -210,17 +204,50 @@ bool protocol_submit_block(YAAMP_CLIENT *client, YAAMP_JOB *job, const char *hea
 	return b;
 }
 
+void protocol_block_accepted(YAAMP_CLIENT *client, YAAMP_JOB *job, double block_diff, double diff_user,
+	const char *blockid, const char *powhash)
+{
+	YAAMP_COIND *coind = job->coind;
+	YAAMP_JOB_TEMPLATE *templ = job->templ;
+
+	debuglog("*** ACCEPTED %s %d (diff %g) by %s (id: %d)\n", coind->name, templ->height,
+		diff_user, client->sock->ip, client->userid);
+	job->block_found = true;
+
+	block_add(client->userid, client->workerid, coind->id, templ->height,
+		block_diff, diff_user, blockid, powhash, templ->has_segwit_txs);
+
+	if (!strcmp(coind->lastnotifyhash, blockid))
+		block_confirm(coind->id, blockid);
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////
+
+void protocol_share_record(YAAMP_CLIENT *client, YAAMP_JOB *job, bool valid, char *nonce, double share_diff,
+	int error, const char *message)
+{
+	char extranonce2[2] = "";
+	if (valid) {
+		client_record_difficulty(client);
+		client->submit_bad = 0;
+		client->shares++;
+		share_add(client, job, true, extranonce2, job->templ->ntime, nonce, share_diff, 0);
+		return;
+	}
+
+	char ntime[16] = "00000000";
+	share_add(client, job, false, extranonce2, job ? job->templ->ntime : ntime, nonce, 0, error);
+	client->submit_bad++;
+
+	if (g_debuglog_hash)
+		debuglog("ERROR %s, %s job %x, nonce1 %s, nonce %s\n", message, client->sock->ip,
+			job ? job->id : 0, client->extranonce1, nonce);
+}
 
 void protocol_share_accepted(YAAMP_CLIENT *client, YAAMP_JOB *job, char *nonce, double share_diff)
 {
 	client_send_result(client, "true");
-	client_record_difficulty(client);
-	client->submit_bad = 0;
-	client->shares++;
-
-	char extranonce2[2] = "";
-	share_add(client, job, true, extranonce2, job->templ->ntime, nonce, share_diff, 0);
+	protocol_share_record(client, job, true, nonce, share_diff, 0, NULL);
 }
 
 void protocol_share_rejected(YAAMP_CLIENT *client, YAAMP_JOB *job, int error, const char *message, char *nonce)
@@ -231,13 +258,5 @@ void protocol_share_rejected(YAAMP_CLIENT *client, YAAMP_JOB *job, int error, co
 	}
 
 	client_send_error(client, error, message);
-
-	char extranonce2[2] = "";
-	char ntime[16] = "00000000";
-	share_add(client, job, false, extranonce2, job ? job->templ->ntime : ntime, nonce, 0, error);
-	client->submit_bad++;
-
-	if (g_debuglog_hash)
-		debuglog("ERROR %s, %s job %x, nonce1 %s, nonce %s\n", message, client->sock->ip,
-			job ? job->id : 0, client->extranonce1, nonce);
+	protocol_share_record(client, job, false, nonce, 0, error, message);
 }

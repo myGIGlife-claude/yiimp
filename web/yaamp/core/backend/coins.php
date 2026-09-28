@@ -178,6 +178,21 @@ function BackendCoinsUpdate()
             }
         }
 
+        else if ($coin->rpcencoding == 'XMR') {
+            // CryptoNote daemons (monerod): no coinbasevalue, the adapter gives the reward
+            // of the next block and the difficulty in 2^32 hash units (wallet-rpc.php)
+            if ($template && isset($template['reward'])) {
+                $coin->reward     = $template['reward'] * $coin->reward_mul;
+                $coin->difficulty = $template['difficulty'];
+                $coin->auto_ready = !empty($info['synchronized']);
+                if (!$coin->auto_ready)
+                    $coin->errors = 'daemon not synchronized';
+            } else {
+                $coin->auto_ready = false;
+                $coin->errors     = $remote->error;
+            }
+        }
+
         else if ($coin->rpcencoding == 'GETH' || $coin->rpcencoding == 'NIRO') {
             $coin->auto_ready = ($coin->connections > 0);
         }

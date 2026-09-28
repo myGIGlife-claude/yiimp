@@ -10,6 +10,10 @@ struct YAAMP_RPC
 	char credential[1024];
 	char cert[1024];
 
+	char path[64];         // url path (curl), empty for "/"
+	char userpwd[512];     // user:password for the curl http authentication (basic or digest),
+	                       // when set it replaces the basic "credential" header
+
 	int ssl;
 	int curl;
 	int sock;

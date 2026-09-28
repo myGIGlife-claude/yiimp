@@ -601,6 +601,18 @@ void *client_thread(void *p)
 			break;
 		}
 
+		// other stratum protocols with named (object) params (protocol.h)
+		if(g_protocol && g_protocol->request)
+		{
+			bool keep = true;
+			if(g_protocol->request(client, method, json, &keep))
+			{
+				json_value_free(json);
+				if(!keep) break;
+				continue;
+			}
+		}
+
 		json_value *json_params = json_get_array(json, "params");
 		if(!json_is_array(json_params))
 		{

@@ -96,3 +96,15 @@ $configAlgoNormCoef = array(
 //	'x11' => 5.0,
 );
 
+
+// CryptoNote coins (rpcencoding XMR): monero-wallet-rpc of the pool wallet, per coin
+// symbol, 'host:port' or 'host:port:user:password' (--rpc-login of the wallet RPC).
+// Default: the host of the daemon, its rpcport + 1, the rpcuser/rpcpasswd of the coin.
+$configWalletRPC = array(
+//	'XMR' => '127.0.0.1:18082:walletuser:walletpassword',
+);
+
+// atomic units per coin of the CryptoNote coins (default 1e12, Monero)
+$configCryptonoteUnits = array(
+//	'XYZ' => 1e8,
+);

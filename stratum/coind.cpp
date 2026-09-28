@@ -181,6 +181,12 @@ void coind_init(YAAMP_COIND *coind)
 
 	yaamp_create_mutex(&coind->mutex);
 
+	// daemons that are not Bitcoin derived (protocol.h)
+	if(g_protocol && g_protocol->coind_init) {
+		g_protocol->coind_init(coind);
+		return;
+	}
+
 	strcpy(account, coind->account);
 	if(!strcmp(coind->rpcencoding, "DCR")) {
 		coind->usegetwork = true;
