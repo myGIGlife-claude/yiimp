@@ -27,7 +27,7 @@ changing anything.
      - **Phase 3**: a "bridge" for completely different daemons, with
        RandomX/Monero as the first engine. Not started (section 6).
   3. The owner then said "Pause this for now" and asked for this document.
-     **Do not resume work until the owner asks you to.**
+     The owner has since asked the session to continue (Equihash first); check in with them before starting Phase 3.
 - Preferences learned:
   - PHP version: the owner chose **PHP 8.3** as the default.
   - They want a list or plan before large additions, and a check-in after each phase.
@@ -35,6 +35,14 @@ changing anything.
     for earlier rounds, but ask again for new PRs.
   - Obscurity was discussed (rewriting in another language); the advice
     given was not to, for security and trust reasons. Nothing was changed.
+
+## 1a. Standing rules from the owner (2026-09-28)
+
+- Another session will add an `oshash` algo on a new branch `claude/oshash`,
+  cut from `claude/multipool-installer-update-s3rama` (yiimp). **Don't touch
+  that branch.**
+- **Don't force-push or rewrite `claude/multipool-installer-update-s3rama`**
+  (in any repo). Adding commits on top is fine.
 
 ## 2. Repositories and how the installer chain works
 
