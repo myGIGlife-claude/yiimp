@@ -1,6 +1,6 @@
 # MultiPool / YiiMP modernization: handoff for the next Claude Code session
 
-Last updated: 2026-09-28. Written by the Claude Code session that did this
+Last updated: 2026-09-28 (Phase 2 finished, PRs open). Written by the Claude Code session that did this
 work, so another session can continue where it stopped. Read it all before
 changing anything.
 
@@ -148,7 +148,30 @@ What Phase 1 contains (yiimp):
 - **Not tested:** VKAX masternode payouts, Lyncoin merge mining, Pulsar (PoS), live mainnet mining, and a full install on a fresh VM.
   flex has no mainnet KAT: its explorers are on ports the proxy blocked, so it was checked against Kylacoin's own code instead.
 
-## 5. Phase 2: where it stopped
+## 5. Phase 2: finished, PRs open (waiting for the owner)
+
+**Status update (2026-09-28, later):** Equihash was finished and verified
+end to end (blocks accepted and confirmed in the DB):
+- zcashd 6.20 NU6 25/25, zcashd Sapling 25/25, BTG 12/12, Resistance 5/5.
+- The blocknotify errors only happened while no stratum was running; that is not a bug.
+
+`claude/phase2-equihash` was fast-forwarded into `claude/phase2`, and web changes were added:
+- the Equihash tables;
+- hashrate constant 2^23 (Sol/s);
+- Zcash-family reward and difficulty in `backend/coins.php`;
+- the LTC `mweb` retry in `coins.php`;
+- NULL coin fields treated as 0 (`db_coins::afterFind`).
+
+49 KATs pass; the page crawl and cron jobs are clean.
+
+PRs:
+- yiimp **#4** (`claude/phase2` → `next`)
+- multipool_yiimp_single **#4** and multipool_yiimp_multi **#4** (`claude/phase2` → `master`): READMEs, and the Equihash stratums added to the single-server boot list.
+
+All three sit on top of the Phase 1 PRs (#3), so merge #3 first. **Next: check in with the owner before starting Phase 3.**
+
+The rest of this section is the history of how Phase 2 was built.
+
 
 Branches in `mygiglifeinc-glitch/yiimp`, all pushed:
 
