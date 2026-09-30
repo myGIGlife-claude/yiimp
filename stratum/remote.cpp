@@ -239,15 +239,20 @@ void *remote_thread(void *p)
 //			debuglog(" * remote method %s\n", method);
 			if(!strcmp(method, "mining.set_difficulty"))
 			{
+				double diff = 0;
 				if(nparams < 1) {}
 				else if(json_params->u.array.values[0]->type == json_double)
-					remote->difficulty_next = json_params->u.array.values[0]->u.dbl;
+					diff = json_params->u.array.values[0]->u.dbl;
 
 				else if(json_params->u.array.values[0]->type == json_integer)
-					remote->difficulty_next = json_params->u.array.values[0]->u.integer;
+					diff = json_params->u.array.values[0]->u.integer;
 
 				else if(json_params->u.array.values[0]->type == json_string)
-					remote->difficulty_next = atof(json_params->u.array.values[0]->u.string.ptr);
+					diff = atof(json_params->u.array.values[0]->u.string.ptr);
+
+				// nan/inf would end in the jobs UPDATE (sql error, the stratum exits)
+				if(isfinite(diff) && diff > 0)
+					remote->difficulty_next = diff;
 
 			//	debuglog("remote difficulty %f\n", remote->difficulty_next);
 			}
