@@ -1,6 +1,15 @@
 
 #include "stratum.h"
 
+// nonce1 (hex) and nonce2 size sent by the remote pool
+static bool remote_nonce_valid(json_value *nonce1, json_value *nonce2size)
+{
+	if(!json_is_string(nonce1) || !json_is_integer(nonce2size)) return false;
+	size_t len = strlen(nonce1->u.string.ptr);
+	if(!len || len > 16 || !ishexa((char *)nonce1->u.string.ptr, len)) return false;
+	return nonce2size->u.integer <= 16;
+}
+
 bool remote_can_mine(YAAMP_REMOTE *remote)
 {
 	if(!remote) return false;
@@ -71,7 +80,7 @@ bool remote_connect(YAAMP_REMOTE *remote)
 	if(sock <= 0) return false;
 
 	struct hostent *ent = gethostbyname(remote->host);
-	if(!ent) return false;
+	if(!ent || ent->h_addrtype != AF_INET) { close(sock); return false; }
 
 	struct sockaddr_in serv;
 
@@ -86,6 +95,7 @@ bool remote_connect(YAAMP_REMOTE *remote)
 		if (g_debuglog_remote) {
 			debuglog("cant connect to %s:%d JOB%d\n", remote->host, remote->port, remote->id);
 		}
+		close(sock);
 		return false;
 	}
 
@@ -177,8 +187,20 @@ void *remote_thread(void *p)
 		json_value *json_params = json_get_array(json, "params");
 		json_value *json_result = json_get_array(json, "result");
 
+		// the answers of the (renter chosen) remote pool are untrusted
+		json_value **params = json_is_array(json_params)? json_params->u.array.values: NULL;
+		int nparams = params? json_params->u.array.length: 0;
+
 		if(id == 1)
 		{
+			if(!json_is_array(json_result) || json_result->u.array.length < 3 ||
+				!remote_nonce_valid(json_result->u.array.values[1], json_result->u.array.values[2]))
+			{
+				debuglog("remote JOB%d: bad subscribe answer\n", remote->id);
+				json_value_free(json);
+				break;
+			}
+
 			remote->status = YAAMP_REMOTE_AUTHORIZE;
 
 			strncpy(remote->nonce1_next, json_result->u.array.values[1]->u.string.ptr, 16);
@@ -199,7 +221,7 @@ void *remote_thread(void *p)
 
 		else if(id == 4)
 		{
-			if(json_result && !json_result->u.boolean)
+			if(json_result && json_result->type == json_boolean && !json_result->u.boolean)
 			{
 				if(remote->submit_last) remote->submit_last->valid = false;
 
@@ -217,7 +239,8 @@ void *remote_thread(void *p)
 //			debuglog(" * remote method %s\n", method);
 			if(!strcmp(method, "mining.set_difficulty"))
 			{
-				if(json_params->u.array.values[0]->type == json_double)
+				if(nparams < 1) {}
+				else if(json_params->u.array.values[0]->type == json_double)
 					remote->difficulty_next = json_params->u.array.values[0]->u.dbl;
 
 				else if(json_params->u.array.values[0]->type == json_integer)
@@ -231,6 +254,11 @@ void *remote_thread(void *p)
 
 			else if(!strcmp(method, "mining.set_extranonce"))
 			{
+				if(nparams < 2 || !remote_nonce_valid(params[0], params[1]))
+				{
+					json_value_free(json);
+					break;
+				}
 				strncpy(remote->nonce1_next, json_params->u.array.values[0]->u.string.ptr, 16);
 				remote->nonce2size_next = json_params->u.array.values[1]->u.integer;
 
@@ -244,6 +272,11 @@ void *remote_thread(void *p)
 
 			else if(!strcmp(method, "mining.notify"))
 			{
+				if(nparams < 1 || !json_is_string(params[0]))
+				{
+					json_value_free(json);
+					break;
+				}
 				strncpy(remote->jobid, json_params->u.array.values[0]->u.string.ptr, 16);
 				string_lower(remote->jobid);
 
@@ -258,7 +291,7 @@ void *remote_thread(void *p)
 					remote->difficulty_actual = remote->difficulty_next;
 
 					remote_create_job(remote, json_params);
-					if(!remote->job) break;
+					if(!remote->job) { json_value_free(json); break; }
 
 					job_signal();
 				}
@@ -266,7 +299,7 @@ void *remote_thread(void *p)
 				else
 				{
 					remote_create_job(remote, json_params);
-					if(!remote->job) break;
+					if(!remote->job) { json_value_free(json); break; }
 
 					job_assign_locked_clients(remote->job);
 					job_broadcast(remote->job);

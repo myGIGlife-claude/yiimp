@@ -52,12 +52,39 @@ void remote_submit(YAAMP_CLIENT *client, YAAMP_JOB *job, YAAMP_JOB_VALUES *submi
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 
+// the remote pool is chosen by the renter: check the notify params before
+// they reach fixed size buffers (merkle steps are binlified into 64 bytes)
+static bool remote_hex_param(json_value *v, size_t minlen, size_t maxlen)
+{
+	if(!json_is_string(v)) return false;
+	size_t len = strlen(v->u.string.ptr);
+	return len >= minlen && len <= maxlen && ishexa((char *)v->u.string.ptr, len);
+}
+
+static bool remote_notify_valid(json_value *json_params)
+{
+	if(!json_is_array(json_params) || json_params->u.array.length < 8) return false;
+	json_value **v = json_params->u.array.values;
+
+	if(!json_is_string(v[0])) return false;
+	if(!remote_hex_param(v[1], 64, 64)) return false;
+	if(!remote_hex_param(v[2], 0, 1023) || !remote_hex_param(v[3], 0, 1023)) return false;
+	if(!remote_hex_param(v[5], 8, 8) || !remote_hex_param(v[6], 8, 8) || !remote_hex_param(v[7], 8, 8)) return false;
+
+	if(!json_is_array(v[4])) return false;
+	for(unsigned int i=0; i<v[4]->u.array.length; i++)
+		if(!remote_hex_param(v[4]->u.array.values[i], 64, 64)) return false;
+
+	return true;
+}
+
 void remote_create_job(YAAMP_REMOTE *remote, json_value *json_params)
 {
 	int jobid_old = remote->job? remote->job->id: 0;
 	object_delete(remote->job);
+	remote->job = NULL; // marked deleted, pruned (freed) by the main thread
 
-	if(json_params->u.array.length<8) return;
+	if(!remote_notify_valid(json_params)) return;
 
 	YAAMP_JOB_TEMPLATE *templ = new YAAMP_JOB_TEMPLATE;
 	memset(templ, 0, sizeof(YAAMP_JOB_TEMPLATE));
