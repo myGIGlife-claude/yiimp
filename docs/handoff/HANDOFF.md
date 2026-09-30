@@ -1,6 +1,45 @@
 # MultiPool / YiiMP modernization: handoff for the next Claude Code session
 
-Last updated: 2026-09-28 (Phase 3 finished on `claude/phase3`, PR open).
+Last updated: 2026-09-30. **Phases 1-3 are all merged** into `next` (yiimp) and `master`
+(installers); sections 4-6a below are kept as the record but their "PR open" wording is
+history.
+
+## 0. Start here (continuing on the owner's own server)
+
+The owner is moving this work from a Claude Code cloud session to their own server, which
+has more plugins installed. The cloud session's container and its scratch files are gone;
+everything that matters is in the repos.
+
+1. Clone the five repos (default branches are up to date):
+   ```
+   for r in Multi-Pool-Installer multipool_setup multipool_yiimp_single multipool_yiimp_multi yiimp; do
+     git clone https://github.com/mygiglifeinc-glitch/$r
+   done
+   ```
+   yiimp's default branch is `next`; the installers use `master`.
+2. Read this whole file, then `docs/BRIDGE.md`. Test tools are in `docs/handoff/tools`,
+   notes in `docs/handoff/notes`.
+3. State on 2026-09-30:
+   - Merged: yiimp #3-#7, single/multi #3-#5, Multi-Pool-Installer #4, multipool_setup #2.
+   - Open: yiimp #8 (this file: solo mining and the height bug). Merge only when the owner says.
+4. Work queue, in order:
+   1. Fix the BIP34 height bug for blocks 1-16 (below). Small, with KATs.
+   2. Payout test for each algo family (below), with the owner.
+   3. Solo mining (`m=solo`), below.
+   4. Later: installer support for monerod/monero-wallet-rpc, the "add a coin from GitHub"
+      admin page and the front-end redesign (mockup linked below).
+5. The owner's rules (also in section 1a):
+   - Give a plan or list before large changes, and check in after each phase.
+   - Merge only when the owner says so. Plain pushes only, never force-push or rewrite.
+   - Don't touch `claude/oshash`.
+   - Kill only processes you started, by PID (not `pkill -x stratum`).
+   - The owner watches their usage; keep work focused.
+   - Commits end with the owner's attribution trailer if their setup uses one; don't put
+     model names in commits or PRs.
+6. Build and check: `make -C stratum -j$(nproc)` (add `MARCH=native` only for a local
+   binary), then `make -C stratum hashtest && stratum/hashtest` (52 KATs pass). PHP:
+   `find web -name '*.php' -print0 | xargs -0 -n1 php -l`. Installers: ShellCheck in CI.
+7. Section 7 explains how to rebuild the regtest environment (daemons, DB, web test site).
 
 > **Next session, first task: a payout test for each algo family**, with the owner.
 > Payouts were the weak spot of the old YiiMP admin. So far only Monero has run
