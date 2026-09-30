@@ -17,11 +17,25 @@ everything that matters is in the repos.
    done
    ```
    yiimp's default branch is `next`; the installers use `master`.
+
+   **Also add the owner's OSBTC coin repos** (private, same GitHub account). The solo-mining
+   request and the block-height bug below come from that project, and it is the first coin
+   meant to launch on this pool:
+   ```
+   git clone https://github.com/mygiglifeinc-glitch/OSBTC
+   git clone https://github.com/mygiglifeinc-glitch/osbtc-core
+   ```
+   Use them to test the height fix and solo mining against the real coin: build its daemon,
+   start a fresh regtest chain, and mine blocks 1-16 through the stratum. Treat them as
+   read-only unless the owner asks for changes there. This session has not read them, so
+   check with the owner which repo holds the daemon (`osbtc-core` by its name), its algo
+   (`oshash`, being added on yiimp branch `claude/oshash` by another session), and its ports.
+   In a Claude Code cloud session, add them to the session's repositories first.
 2. Read this whole file, then `docs/BRIDGE.md`. Test tools are in `docs/handoff/tools`,
    notes in `docs/handoff/notes`.
 3. State on 2026-09-30:
-   - Merged: yiimp #3-#7, single/multi #3-#5, Multi-Pool-Installer #4, multipool_setup #2.
-   - Open: yiimp #8 (this file: solo mining and the height bug). Merge only when the owner says.
+   - Merged: yiimp #3-#8, single/multi #3-#5, Multi-Pool-Installer #4-#5, multipool_setup #2.
+   - Nothing else open from this work. Check `claude/oshash` status with the owner.
 4. Work queue, in order:
    1. Fix the BIP34 height bug for blocks 1-16 (below). Small, with KATs.
    2. Payout test for each algo family (below), with the owner.
