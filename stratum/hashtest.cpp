@@ -15,6 +15,9 @@
 #include "algos/randomx/randomx.h"
 #include "algos/cryptonote_block.h"
 
+// util.o (ser_number) references it; stratum.cpp defines it in the stratum
+YAAMP_ALGO *g_current_algo = NULL;
+
 // same wrappers as in stratum.cpp
 static void scrypt_hash(const char* input, char* output, uint32_t len)
 {
@@ -831,6 +834,23 @@ int main(int argc, char **argv)
 		if (ok) printf("OK   decred KAT (%s)\n", dcr_vectors[k].source);
 		else errors++;
 	}
+
+	// BIP34 coinbase height, as CScript() << nHeight: OP_0, OP_1..OP_16, then a minimal push
+	static const struct { int height; const char *script; } heights[] = {
+		{ 0, "00" }, { 1, "51" }, { 16, "60" }, { 17, "0111" }, { 127, "017f" },
+		{ 128, "028000" }, { 255, "02ff00" }, { 256, "020001" }, { 65536, "03000001" },
+	};
+	int height_errors = 0;
+	for (auto &h : heights) {
+		char script[32];
+		ser_number(h.height, script);
+		if (strcmp(script, h.script)) {
+			printf("FAIL coinbase height %d: %s, expected %s\n", h.height, script, h.script);
+			height_errors++;
+		}
+	}
+	if (!height_errors) printf("OK   coinbase height KAT\n");
+	errors += height_errors;
 
 	// extend the header with a pattern for the algos using longer headers
 	for (int i = 80; i < (int) sizeof(input); i++)

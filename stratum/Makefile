@@ -67,8 +67,8 @@ $(OUTPUT): $(OBJECTS) $(LIBS)
 	$(CXX) $(LDFLAGS) $(OBJECTS) $(LDLIBS) -o $@
 
 # hash regression test, not built by default: make hashtest && ./hashtest
-hashtest: hashtest.o $(LIBS)
-	$(CXX) $(LDFLAGS) hashtest.o $(LIBS) $(shell pkg-config --libs libcrypto 2>/dev/null || echo -lcrypto) -lpthread -lgmp -lm -o $@
+hashtest: hashtest.o util.o $(LIBS)
+	$(CXX) $(LDFLAGS) hashtest.o util.o $(LIBS) $(shell pkg-config --libs libcrypto 2>/dev/null || echo -lcrypto) -lpthread -lgmp -lm -o $@
 
 # verthash.dat generator for the verthash stratum: make verthash_gen && ./verthash_gen <file>
 verthash_gen: verthash_gen.c algos/verthash.h

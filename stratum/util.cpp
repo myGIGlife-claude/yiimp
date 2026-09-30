@@ -473,6 +473,13 @@ void ser_number(int n, char *a)
 	memset(s, 0, 32);
 	memset(a, 0, 32);
 
+	// BIP34 nodes compare the height with CScript() << n, which uses OP_0 and OP_1..OP_16
+	if(n >= 0 && n <= 16)
+	{
+		sprintf(a, "%02x", n ? 0x50 + n : 0);
+		return;
+	}
+
 	s[0] = 1;
 	while(n > 127)
 	{
