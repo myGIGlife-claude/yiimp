@@ -28,19 +28,19 @@ static void job_mining_notify_buffer(YAAMP_JOB *job, YAAMP_CLIENT *client, char 
 		// version, bits and time as serialized (little endian)
 		char nbits[16];
 		hexlify(nbits, (const unsigned char *) &templ->header[116], 4);
-		sprintf(buffer, "{\"id\":null,\"method\":\"mining.notify\",\"params\":["
+		snprintf(buffer, YAAMP_SMALLBUFSIZE, "{\"id\":null,\"method\":\"mining.notify\",\"params\":["
 			"\"%x\",\"%s\",\"%s\",\"\",[],\"%s\",\"%s\",\"%s\",true]}\n",
 			job->id, templ->prevhash_be, templ->coinb1, templ->version, nbits, templ->ntime);
 		return;
 	} else if (!strcmp(g_stratum_algo, "lbry")) {
-		sprintf(buffer, "{\"id\":null,\"method\":\"mining.notify\",\"params\":["
+		snprintf(buffer, YAAMP_SMALLBUFSIZE, "{\"id\":null,\"method\":\"mining.notify\",\"params\":["
 			"\"%x\",\"%s\",\"%s\",\"%s\",\"%s\",[%s],\"%s\",\"%s\",\"%s\",true]}\n",
 			job->id, templ->prevhash_be, templ->claim_be, templ->coinb1, templ->coinb2,
 			templ->txmerkles, templ->version, templ->nbits, templ->ntime);
 		return;
 	} else if (strlen(templ->extradata_hex) == 128) {
 		// LUX smart contract state hashes (like lbry extra field, here the 2 root hashes in one)
-		sprintf(buffer, "{\"id\":null,\"method\":\"mining.notify\",\"params\":["
+		snprintf(buffer, YAAMP_SMALLBUFSIZE, "{\"id\":null,\"method\":\"mining.notify\",\"params\":["
 			"\"%x\",\"%s\",\"%s\",\"%s\",\"%s\",[%s],\"%s\",\"%s\",\"%s\",true]}\n",
 			job->id, templ->prevhash_be, templ->extradata_be, templ->coinb1, templ->coinb2,
 			templ->txmerkles, templ->version, templ->nbits, templ->ntime);
@@ -48,7 +48,7 @@ static void job_mining_notify_buffer(YAAMP_JOB *job, YAAMP_CLIENT *client, char 
 	}
 
 	// standard stratum
-	sprintf(buffer, "{\"id\":null,\"method\":\"mining.notify\",\"params\":[\"%x\",\"%s\",\"%s\",\"%s\",[%s],\"%s\",\"%s\",\"%s\",true]}\n",
+	snprintf(buffer, YAAMP_SMALLBUFSIZE, "{\"id\":null,\"method\":\"mining.notify\",\"params\":[\"%x\",\"%s\",\"%s\",\"%s\",[%s],\"%s\",\"%s\",\"%s\",true]}\n",
 		job->id, templ->prevhash_be, templ->coinb1, templ->coinb2, templ->txmerkles, templ->version, templ->nbits, templ->ntime);
 }
 
