@@ -18,19 +18,22 @@ everything that matters is in the repos.
    ```
    yiimp's default branch is `next`; the installers use `master`.
 
-   **Also add the owner's OSBTC coin repos** (private, same GitHub account). The solo-mining
-   request and the block-height bug below come from that project, and it is the first coin
-   meant to launch on this pool:
-   ```
-   git clone https://github.com/mygiglifeinc-glitch/OSBTC
-   git clone https://github.com/mygiglifeinc-glitch/osbtc-core
-   ```
-   Use them to test the height fix and solo mining against the real coin: build its daemon,
-   start a fresh regtest chain, and mine blocks 1-16 through the stratum. Treat them as
-   read-only unless the owner asks for changes there. This session has not read them, so
-   check with the owner which repo holds the daemon (`osbtc-core` by its name), its algo
-   (`oshash`, being added on yiimp branch `claude/oshash` by another session), and its ports.
-   In a Claude Code cloud session, add them to the session's repositories first.
+   **Repositories to add to the session.** All five belong to the MultiPool installer
+   chain and are all needed, with push access. In a Claude Code cloud session, add them
+   to the session's repositories. On a server, make sure `git`/`gh` can push to them.
+
+   | Repo | Role | Branch |
+   |---|---|---|
+   | `mygiglifeinc-glitch/Multi-Pool-Installer` | Entry point: `bootstrap.sh` clones multipool_setup | `master` |
+   | `mygiglifeinc-glitch/multipool_setup` | User setup, `/etc/multipool.conf`, the menu; clones single or multi | `master` |
+   | `mygiglifeinc-glitch/multipool_yiimp_single` | YiiMP single-server installer; clones yiimp | `master` |
+   | `mygiglifeinc-glitch/multipool_yiimp_multi` | YiiMP multi-server installer; clones yiimp | `master` |
+   | `mygiglifeinc-glitch/yiimp` | The YiiMP fork (web + stratum); this handoff lives here | `next` |
+
+   The menu's legacy options (Daemon Builder, NOMP, YiiMP Stratum Upgrade) still clone the
+   old `cryptopool-builders/multipool_coin_builder`, `multipool_nomp` and
+   `multipool_yiimp_upgrade` at their last release. They haven't been forked or updated.
+   Add them only if the owner asks to modernize those too.
 2. Read this whole file, then `docs/BRIDGE.md`. Test tools are in `docs/handoff/tools`,
    notes in `docs/handoff/notes`.
 3. State on 2026-09-30:
