@@ -17,11 +17,28 @@ everything that matters is in the repos.
    done
    ```
    yiimp's default branch is `next`; the installers use `master`.
+
+   **Repositories to add to the session.** All five belong to the MultiPool installer
+   chain and are all needed, with push access. In a Claude Code cloud session, add them
+   to the session's repositories. On a server, make sure `git`/`gh` can push to them.
+
+   | Repo | Role | Branch |
+   |---|---|---|
+   | `mygiglifeinc-glitch/Multi-Pool-Installer` | Entry point: `bootstrap.sh` clones multipool_setup | `master` |
+   | `mygiglifeinc-glitch/multipool_setup` | User setup, `/etc/multipool.conf`, the menu; clones single or multi | `master` |
+   | `mygiglifeinc-glitch/multipool_yiimp_single` | YiiMP single-server installer; clones yiimp | `master` |
+   | `mygiglifeinc-glitch/multipool_yiimp_multi` | YiiMP multi-server installer; clones yiimp | `master` |
+   | `mygiglifeinc-glitch/yiimp` | The YiiMP fork (web + stratum); this handoff lives here | `next` |
+
+   The menu's legacy options (Daemon Builder, NOMP, YiiMP Stratum Upgrade) still clone the
+   old `cryptopool-builders/multipool_coin_builder`, `multipool_nomp` and
+   `multipool_yiimp_upgrade` at their last release. They haven't been forked or updated.
+   Add them only if the owner asks to modernize those too.
 2. Read this whole file, then `docs/BRIDGE.md`. Test tools are in `docs/handoff/tools`,
    notes in `docs/handoff/notes`.
 3. State on 2026-09-30:
-   - Merged: yiimp #3-#7, single/multi #3-#5, Multi-Pool-Installer #4, multipool_setup #2.
-   - Open: yiimp #8 (this file: solo mining and the height bug). Merge only when the owner says.
+   - Merged: yiimp #3-#8, single/multi #3-#5, Multi-Pool-Installer #4-#5, multipool_setup #2.
+   - Nothing else open from this work. Check `claude/oshash` status with the owner.
 4. Work queue, in order:
    1. Fix the BIP34 height bug for blocks 1-16 (below). Small, with KATs.
    2. Payout test for each algo family (below), with the owner.
