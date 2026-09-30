@@ -1,6 +1,45 @@
 # MultiPool / YiiMP modernization: handoff for the next Claude Code session
 
-Last updated: 2026-09-28 (Phase 3 finished on `claude/phase3`, PR open).
+Last updated: 2026-09-30. **Phases 1-3 are all merged** into `next` (yiimp) and `master`
+(installers); sections 4-6a below are kept as the record but their "PR open" wording is
+history.
+
+## 0. Start here (continuing on the owner's own server)
+
+The owner is moving this work from a Claude Code cloud session to their own server, which
+has more plugins installed. The cloud session's container and its scratch files are gone;
+everything that matters is in the repos.
+
+1. Clone the five repos (default branches are up to date):
+   ```
+   for r in Multi-Pool-Installer multipool_setup multipool_yiimp_single multipool_yiimp_multi yiimp; do
+     git clone https://github.com/mygiglifeinc-glitch/$r
+   done
+   ```
+   yiimp's default branch is `next`; the installers use `master`.
+2. Read this whole file, then `docs/BRIDGE.md`. Test tools are in `docs/handoff/tools`,
+   notes in `docs/handoff/notes`.
+3. State on 2026-09-30:
+   - Merged: yiimp #3-#7, single/multi #3-#5, Multi-Pool-Installer #4, multipool_setup #2.
+   - Open: yiimp #8 (this file: solo mining and the height bug). Merge only when the owner says.
+4. Work queue, in order:
+   1. Fix the BIP34 height bug for blocks 1-16 (below). Small, with KATs.
+   2. Payout test for each algo family (below), with the owner.
+   3. Solo mining (`m=solo`), below.
+   4. Later: installer support for monerod/monero-wallet-rpc, the "add a coin from GitHub"
+      admin page and the front-end redesign (mockup linked below).
+5. The owner's rules (also in section 1a):
+   - Give a plan or list before large changes, and check in after each phase.
+   - Merge only when the owner says so. Plain pushes only, never force-push or rewrite.
+   - Don't touch `claude/oshash`.
+   - Kill only processes you started, by PID (not `pkill -x stratum`).
+   - The owner watches their usage; keep work focused.
+   - Commits end with the owner's attribution trailer if their setup uses one; don't put
+     model names in commits or PRs.
+6. Build and check: `make -C stratum -j$(nproc)` (add `MARCH=native` only for a local
+   binary), then `make -C stratum hashtest && stratum/hashtest` (52 KATs pass). PHP:
+   `find web -name '*.php' -print0 | xargs -0 -n1 php -l`. Installers: ShellCheck in CI.
+7. Section 7 explains how to rebuild the regtest environment (daemons, DB, web test site).
 
 > **Next session, first task: a payout test for each algo family**, with the owner.
 > Payouts were the weak spot of the old YiiMP admin. So far only Monero has run
@@ -21,6 +60,22 @@ Last updated: 2026-09-28 (Phase 3 finished on `claude/phase3`, PR open).
 > Fix whatever breaks, as its own PR, and ask the owner before merging.
 > Also still untested: merge mining (Lyncoin), PoS coins (Pulsar), live mainnet.
 > See `docs/BRIDGE.md` and the Phase 3 notes below.
+>
+> **To do, owner's request: solo mining** (from the owner's new-coin project, OSBTC).
+> - Miners pick solo with the password convention most YiiMP forks use: `-p c=OSBTC,m=solo`.
+>   Without `m=solo` the miner is in the shared pool as now.
+> - Keep the two apart: solo shares never count toward shared-pool rewards, and shared
+>   shares never count toward a solo block. A solo block pays its finder only (minus the
+>   solo fee). Things to separate: share rows and earnings, hashrate and worker stats, the
+>   pool's own round/effort figures, and the web pages that show them. Checked on
+>   2026-09-30: the stratum has no solo code yet (`grep -i solo stratum/` finds nothing).
+> - **Bug to fix first, confirmed in the code:** the block height in the coinbase is wrong
+>   for blocks 1-16. `ser_number()` (`stratum/util.cpp`, used by `coinbase.cpp`) writes a
+>   one-byte push (`01 01` for height 1), but BIP34 nodes expect what `CScript() << nHeight`
+>   makes: `OP_1`..`OP_16` (`0x51`..`0x60`) for heights 1-16. The node rejects those
+>   blocks (the same bug the upstream miner had for OSBTC). Only matters for a new chain's
+>   first 16 blocks, which is when a new coin launched on this pool needs it. Add a KAT
+>   for heights 0, 1, 16, 17, 127, 128, 255, 256 and 65536.
 >
 > **Idea for later, owner's request:** a "build a coin from its GitHub link" page in the
 > admin (read the repo, detect the algo, build the daemon in an isolated container,
