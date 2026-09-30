@@ -92,6 +92,7 @@ static const struct test_algo algos[] = {
 	{ "myr-gr", groestlmyriad_hash },
 	{ "neoscrypt", neoscrypt_hash },
 	{ "nist5", nist5_hash },
+	{ "oshash", oshash_hash },
 	{ "pawelhash", pawelhash_hash },
 	{ "penta", penta_hash },
 	{ "phi", phi_hash },
@@ -761,6 +762,16 @@ int main(int argc, char **argv)
 		errors++;
 	} else {
 		printf("OK   sha256d genesis\n");
+	}
+	// OSHash-Y known answer (OSBTC/oshash/vectors.txt line 1: all-zero header)
+	{
+		char hdr[80] = {0}, out[32];
+		static const char want[] = "4d14dddafb2e21b4ba9ac2d27910bdc525f1ff0d9c57fac2d6dbd4d9b26f2025";
+		char hex[65];
+		oshash_hash(hdr, out, 80);
+		for (int i = 0; i < 32; i++) sprintf(hex + 2*i, "%02x", (unsigned char)out[i]);
+		if (strcmp(hex, want)) { printf("oshash KAT FAILED: %s\n", hex); return 1; }
+		printf("oshash KAT ok\n");
 	}
 
 	errors += run_kats(argc > 1 ? argv[1] : NULL);

@@ -227,6 +227,7 @@ YAAMP_ALGO g_algos[] =
 	{"yescryptR8", yescryptR8_hash, 0x10000, 0, 0}, // BitZeny (ZNY)
 	{"yescryptR16", yescryptR16_hash, 0x10000, 0, 0},
 	{"yescryptR32", yescryptR32_hash, 0x10000, 0, 0}, // WAVI, LuckyPepe (LPEPE)
+	{"oshash", oshash_hash, 0x10000, 0, 0}, // Old School Bitcoin (OSBTC), OSHash-Y: SHA-256d, yespower 1.0, SHA3-256
 	{"yespower", yespower_hash, 0x10000, 0, 0},
 	{"yespowerADVC", yespowerADVC_hash, 0x10000, 0, 0}, // AdventureCoin (ADVC)
 	{"yespowerARWN", yespowerARWN_hash, 0x10000, 0, 0}, // Arowanacoin (ARWN)

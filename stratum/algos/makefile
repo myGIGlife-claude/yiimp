@@ -24,7 +24,7 @@ SOURCES=lyra2re.c lyra2v2.c lyra2v3.c Lyra2.c lyra2z.c Lyra2-z.c lyra2zz.c Lyra2
 	blake2/blake2b.c argon2d/argon2.c argon2d/core.c argon2d/encoding.c argon2d/opt.c argon2d/thread.c \
 	hive.c pomelo.c hex.c argon2m.c argon2d.c geek.c balloon.c \
 	phi.c phi2.c polytimos.c rainforest.c skunk.c sib.c veltor.c gost.c aergo.c x20r.c x21s.c lbk3.c pipehash.c gltalgos.c \
-	yespower/yespower-platform.c yespower/yespower-combined.c sha256-P.c dedal.c phi1612.c bcd.c \
+	yespower/yespower-platform.c yespower/yespower-combined.c oshash.c oshash_prims.c oshash-stratum.c sha256-P.c dedal.c phi1612.c bcd.c \
 	sha512256d.c sha3_256t.c verthash.c \
 	blake3hash.c blake3/blake3.c blake3/blake3_dispatch.c blake3/blake3_portable.c \
 	ghostrider.c flex.c cryptonote/cn_slow_hash.c cryptonote/aesb.c cryptonote/c_keccak.c cryptonote/c_blake256.c \
@@ -60,6 +60,9 @@ endif
 # BLAKE3 (decred, blake3): portable C only, no SIMD code to keep the build
 # independent of MARCH (a 180-byte header is a single BLAKE3 chunk anyway)
 blake3/%.o: CFLAGS += -DBLAKE3_NO_SSE2 -DBLAKE3_NO_SSE41 -DBLAKE3_NO_AVX2 -DBLAKE3_NO_AVX512 -DBLAKE3_USE_NEON=0
+
+# OSHash-Y (OSBTC): the vendored oshash.c includes "yespower.h"
+oshash.o: CFLAGS += -Iyespower
 
 OBJECTS=$(patsubst %.S,%.o,$(patsubst %.cpp,%.o,$(SOURCES:.c=.o)))
 OUTPUT=libalgos.a

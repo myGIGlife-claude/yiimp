@@ -202,6 +202,7 @@ void sha3d_hash_hex(const char *input, char *output, unsigned int len);
 #include "algos/minotaur.h"
 #include "algos/neoscrypt.h"
 #include "algos/nist5.h"
+#include "algos/oshash-stratum.h"
 #include "algos/pentablake.h"
 #include "algos/phi.h"
 #include "algos/phi2.h"
