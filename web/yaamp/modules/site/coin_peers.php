@@ -77,12 +77,12 @@ if (!empty($list)) foreach ($list as $peer)
     echo '<tr class="ssrow">';
 
     $node = arraySafeVal($peer, 'addr');
-    echo '<td>' . $node . '</td>';
+    echo '<td>' . CHtml::encode($node) . '</td>';
     $addnode[] = ($coin->rpcencoding == 'DCR' ? 'addpeer=' : 'addnode=') . $node;
 
     $peerver = trim(arraySafeVal($peer, 'subver') , '/');
     $version = max($version, $peerver);
-    echo '<td>' . $peerver . '</td>';
+    echo '<td>' . CHtml::encode($peerver) . '</td>';
 
     $height = arraySafeVal($peer, 'currentheight');
     $class = abs($height - $localheight) > 5 ? 'red' : '';
@@ -119,9 +119,9 @@ if (!empty($list)) foreach ($list as $peer)
 echo '</tbody></table><br>';
 
 echo '<b>Local version: </b>' . formatWalletVersion($coin) . ' ';
-echo '<b>Latest : </b>' . $version;
+echo '<b>Latest : </b>' . CHtml::encode($version);
 
 echo '<pre>';
-echo implode("\n", $addnode);
+echo CHtml::encode(implode("\n", $addnode));
 echo '</pre>';
 //echo json_encode($list);
