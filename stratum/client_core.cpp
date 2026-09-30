@@ -35,6 +35,9 @@ YAAMP_CLIENT *client_find_notify_id(const char *notify_id, bool reconnecting)
 		YAAMP_CLIENT *client = (YAAMP_CLIENT *)li->data;
 		if(client->reconnecting == reconnecting && !strcmp(client->notify_id, notify_id))
 		{
+			// keep it from being pruned (freed) while the caller reads it,
+			// the caller releases it (client_subscribe resets lock_count)
+			object_lock(client);
 			g_list_client.Leave();
 			return client;
 		}
