@@ -544,6 +544,8 @@ void *client_thread(void *p)
 	YAAMP_CLIENT *client = new YAAMP_CLIENT;
 	if(!client) {
 		stratumlog("client_thread OOM");
+		close((int)(long)p);
+		__sync_fetch_and_sub(&g_client_threads, 1);
 		pthread_exit(NULL);
 		return NULL;
 	}
@@ -709,5 +711,6 @@ void *client_thread(void *p)
 		delete client;
 	}
 
+	__sync_fetch_and_sub(&g_client_threads, 1);
 	pthread_exit(NULL);
 }

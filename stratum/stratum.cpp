@@ -39,6 +39,7 @@ double g_stratum_max_diff;
 
 int g_stratum_max_ttf;
 int g_stratum_max_cons = 5000;
+int g_client_threads = 0; // open client connections (threads)
 bool g_stratum_reconnect;
 bool g_stratum_renting;
 bool g_stratum_segwit = false;
@@ -564,14 +565,26 @@ void *stratum_thread(void *p)
 		}
 
 		failcount = 0;
+
+		// unauthenticated connections are only limited by the recv timeout:
+		// cap them so a connection flood can't exhaust the fds/threads
+		// (which makes the stratum exit)
+		if(__sync_fetch_and_add(&g_client_threads, 0) >= g_stratum_max_cons + 1000)
+		{
+			close(sock);
+			continue;
+		}
+
+		__sync_fetch_and_add(&g_client_threads, 1);
 		pthread_t thread;
 		int res = pthread_create(&thread, NULL, client_thread, (void *)(long)sock);
 		if(res != 0)
 		{
-			int error = errno;
+			int error = res;
+			__sync_fetch_and_sub(&g_client_threads, 1);
 			close(sock);
-			g_exiting = true;
 			stratumlog("%s pthread_create error %d %d\n", g_stratum_algo, res, error);
+			usleep(50000);
 			continue;
 		}
 
