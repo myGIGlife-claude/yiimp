@@ -331,11 +331,11 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 	sprintf(templ->ntime, "%08x", (unsigned int)json_get_int(json_result, "curtime"));
 
 	const char *bits = json_get_string(json_result, "bits");
-	strcpy(templ->nbits, bits ? bits : "");
+	snprintf(templ->nbits, sizeof(templ->nbits), "%s", bits ? bits : "");
 	const char *prev = json_get_string(json_result, "previousblockhash");
-	strcpy(templ->prevhash_hex, prev ? prev : "");
+	snprintf(templ->prevhash_hex, sizeof(templ->prevhash_hex), "%s", prev ? prev : "");
 	const char *flags = json_get_string(json_coinbaseaux, "flags");
-	strcpy(templ->flags, flags ? flags : "");
+	snprintf(templ->flags, sizeof(templ->flags), "%s", flags ? flags : "");
 	strcpy(templ->priceinfo, "");
 
 	// Litecoin MWEB extension block, serialized after the transactions
