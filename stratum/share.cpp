@@ -291,6 +291,8 @@ bool block_confirm(int coinid, const char *blockhash)
 	}
 	g_list_coind.Leave();
 
+	// called from the client threads, block_prune() deletes in the main one
+	g_list_block.Enter();
 	for(CLI li = g_list_block.first; li; li = li->next)
 	{
 		YAAMP_BLOCK *block = (YAAMP_BLOCK *)li->data;
@@ -302,9 +304,11 @@ bool block_confirm(int coinid, const char *blockhash)
 				strncpy(block->hash, blockhash, 65);
 				block->confirmed = true;
 			}
+			g_list_block.Leave();
 			return true;
 		}
 	}
+	g_list_block.Leave();
 	return false;
 }
 
