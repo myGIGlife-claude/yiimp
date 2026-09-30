@@ -473,6 +473,13 @@ void ser_number(int n, char *a)
 	memset(s, 0, 32);
 	memset(a, 0, 32);
 
+	// BIP34: 1..16 are pushed as OP_1..OP_16 (CScript() << n), a single byte 0x51..0x60;
+	// "01 0n" makes Bitcoin Core reject the block (bad-cb-height) on a fresh chain
+	if(n >= 1 && n <= 16) {
+		sprintf(a, "%02x", 0x50 + n);
+		return;
+	}
+
 	s[0] = 1;
 	while(n > 127)
 	{
