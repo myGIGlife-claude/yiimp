@@ -411,7 +411,7 @@ class ApiController extends CommonController
         if (!$job || $job->renterid != $renter->id)
             return;
 
-        $job->price = $price;
+        $job->price = floatval($price);
         $job->time  = time();
         $job->save();
     }
@@ -437,7 +437,7 @@ class ApiController extends CommonController
         if (!$job || $job->renterid != $renter->id)
             return;
 
-        $job->speed = $hashrate;
+        $job->speed = floatval($hashrate);
         $job->time  = time();
         $job->save();
     }
