@@ -629,6 +629,8 @@ void db_store_stats(YAAMP_DB *db, YAAMP_CLIENT *client, json_value *stats)
 	intensity  = json_double_safe(stats, "intensity");
 	khashes    = json_double_safe(stats, "khashes");
 	throughput = json_double_safe(stats, "throughput");
+	// 1e999 parses as inf: "inf"/"nan" in the query is an sql error, which exits the stratum
+	if (!isfinite(khashes) || !isfinite(intensity) || !isfinite(throughput)) return;
 	if (throughput < 0.) throughput = 0.;
 	if (khashes < 0. || intensity < 0.) return;
 
