@@ -48,10 +48,8 @@ if($user)
 	</script>
 END;
 
-	if(empty($user->hostaddr) && !$this->admin) {
-		$user->hostaddr = $_SERVER['REMOTE_ADDR'];
-		$user->save();
-	}
+	// the stratum records the miner ip (hostaddr) at login; a page visitor
+	// is not the miner, his ip is not written here
 }
 
 $username = $user? $user->username: '';

@@ -58,8 +58,7 @@ class ExplorerController extends CommonController
         if (isset($_COOKIE['mainbtc'])) return;
         if (!LimitRequest('explorer')) return;
 
-        $id = getiparam('id');
-        $coin = getdbo('db_coins', $id);
+        $coin = $this->getExplorerCoin();
         if ($coin && $coin->no_explorer)
         {
             $link = $coin->link_explorer;
@@ -155,8 +154,7 @@ class ExplorerController extends CommonController
      */
     public function actionGraph()
     {
-        $id = getiparam('id');
-        $coin = getdbo('db_coins', $id);
+        $coin = $this->getExplorerCoin();
         if ($coin) $this->renderPartial('graph', array(
             'coin' => $coin
         ));
@@ -168,11 +166,18 @@ class ExplorerController extends CommonController
      */
     public function actionPeers()
     {
-        $id = getiparam('id');
-        $coin = getdbo('db_coins', $id);
+        $coin = $this->getExplorerCoin();
         if ($coin) $this->renderPartial('peers', array(
             'coin' => $coin
         ));
+    }
+
+    // the coin of ?id=, hidden coins only for the admin (as /explorer/SYM)
+    private function getExplorerCoin()
+    {
+        $coin = getdbo('db_coins', getiparam('id'));
+        if ($coin && !$coin->visible && !$this->admin) return null;
+        return $coin;
     }
 
 }

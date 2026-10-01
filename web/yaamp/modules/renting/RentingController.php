@@ -25,6 +25,14 @@ class RentingController extends CommonController
             $this->redirect('/renting');
             return false;
         }
+        // renting disabled: the renters may still see their account and withdraw,
+        // but no new accounts (wallet addresses) or orders
+        $disabled = array('create', 'ordersave', 'orderdialog', 'jobs_start', 'jobs_startall', 'resetspent');
+        if (!YAAMP_RENTAL && !$this->admin && in_array(strtolower($action->id), $disabled))
+        {
+            $this->redirect('/renting');
+            return false;
+        }
         return true;
     }
 
