@@ -38,7 +38,7 @@ everything that matters is in the repos.
    notes in `docs/handoff/notes`.
 3. State on 2026-09-30:
    - Merged: yiimp #3-#8, single/multi #3-#5, Multi-Pool-Installer #4-#5, multipool_setup #2.
-   - Nothing else open from this work. Check `claude/oshash` status with the owner.
+   - Nothing else open from this work.
 4. Work queue, in order:
    1. Fix the BIP34 height bug for blocks 1-16 (below). Small, with KATs.
    2. Payout test for each algo family (below), with the owner.
@@ -48,7 +48,6 @@ everything that matters is in the repos.
 5. The owner's rules (also in section 1a):
    - Give a plan or list before large changes, and check in after each phase.
    - Merge only when the owner says so. Plain pushes only, never force-push or rewrite.
-   - Don't touch `claude/oshash`.
    - Kill only processes you started, by PID (not `pkill -x stratum`).
    - The owner watches their usage; keep work focused.
    - Commits end with the owner's attribution trailer if their setup uses one; don't put
@@ -78,8 +77,8 @@ everything that matters is in the repos.
 > Also still untested: merge mining (Lyncoin), PoS coins (Pulsar), live mainnet.
 > See `docs/BRIDGE.md` and the Phase 3 notes below.
 >
-> **To do, owner's request: solo mining** (from the owner's new-coin project, OSBTC).
-> - Miners pick solo with the password convention most YiiMP forks use: `-p c=OSBTC,m=solo`.
+> **To do, owner's request: solo mining** (from the owner's new-coin project).
+> - Miners pick solo with the password convention most YiiMP forks use: `-p c=COIN,m=solo`.
 >   Without `m=solo` the miner is in the shared pool as now.
 > - Keep the two apart: solo shares never count toward shared-pool rewards, and shared
 >   shares never count toward a solo block. A solo block pays its finder only (minus the
@@ -90,7 +89,7 @@ everything that matters is in the repos.
 >   for blocks 1-16. `ser_number()` (`stratum/util.cpp`, used by `coinbase.cpp`) writes a
 >   one-byte push (`01 01` for height 1), but BIP34 nodes expect what `CScript() << nHeight`
 >   makes: `OP_1`..`OP_16` (`0x51`..`0x60`) for heights 1-16. The node rejects those
->   blocks (the same bug the upstream miner had for OSBTC). Only matters for a new chain's
+>   blocks (the upstream miner had the same bug). Only matters for a new chain's
 >   first 16 blocks, which is when a new coin launched on this pool needs it. Add a KAT
 >   for heights 0, 1, 16, 17, 127, 128, 255, 256 and 65536.
 >
@@ -137,9 +136,6 @@ changing anything.
 
 ## 1a. Standing rules from the owner (2026-09-28)
 
-- Another session will add an `oshash` algo on a new branch `claude/oshash`,
-  cut from `claude/multipool-installer-update-s3rama` (yiimp). **Don't touch
-  that branch.**
 - **Don't force-push or rewrite `claude/multipool-installer-update-s3rama`**
   (in any repo). Adding commits on top is fine.
 
