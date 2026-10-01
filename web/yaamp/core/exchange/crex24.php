@@ -12,7 +12,6 @@ function crex24_api_query($method, $params='', $returnType='object')
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 	curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
 	$execResult = strip_tags(curl_exec($ch));
 

@@ -8,7 +8,6 @@ function tradeogre_api_query($method, $params='')
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 	curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
  	$execResult = strip_tags(curl_exec($ch));
  	$obj = json_decode($execResult, true);
  	return $obj;
@@ -24,7 +23,6 @@ function tradeogre_api_query($method, $params='')
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_USERPWD, $key. ":" .$secret);
     $execResult = curl_exec($ch);
     $resData = json_decode($execResult);
@@ -47,7 +45,6 @@ function tradeogre_api_query($method, $params='')
     curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
     curl_setopt($ch,CURLINFO_HEADER_OUT,true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_USERPWD, $key. ":" .$secret);
      $execResult = curl_exec($ch);
     $resData = json_decode($execResult);

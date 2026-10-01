@@ -50,7 +50,6 @@ class poloniex
 			curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 			curl_setopt($ch, CURLOPT_TIMEOUT, 40);
-			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
 
 			// run the query
 			$res = curl_exec($ch);

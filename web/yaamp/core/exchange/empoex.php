@@ -36,7 +36,6 @@ function empoex_api_user($method, $params = "")
 	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 	curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/4.0 (compatible; SMART_API PHP client; '.php_uname('s').'; PHP/'.phpversion().')');
 	curl_setopt($ch, CURLOPT_URL, $url);
-	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 	curl_setopt($ch, CURLOPT_ENCODING , 'gzip');
 
 	$res = curl_exec($ch);
