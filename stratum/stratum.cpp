@@ -42,6 +42,7 @@ int g_stratum_max_cons = 5000;
 int g_client_threads = 0; // open client connections (threads)
 bool g_stratum_reconnect;
 bool g_stratum_renting;
+bool g_allow_private_remote = false;
 bool g_stratum_segwit = false;
 
 // Multi-algo chains select the PoW by bits of the block version: getblocktemplate may
@@ -352,6 +353,7 @@ int main(int argc, char **argv)
 	g_stratum_max_ttf = iniparser_getint(ini, "STRATUM:max_ttf", 0x70000000);
 	g_stratum_reconnect = iniparser_getint(ini, "STRATUM:reconnect", true);
 	g_stratum_renting = iniparser_getint(ini, "STRATUM:renting", true);
+	g_allow_private_remote = iniparser_getint(ini, "STRATUM:allow_private_remote", false);
 	g_handle_haproxy_ips = iniparser_getint(ini, "STRATUM:haproxy_ips", g_handle_haproxy_ips);
 	g_socket_recv_timeout = iniparser_getint(ini, "STRATUM:recv_timeout", 600);
 
