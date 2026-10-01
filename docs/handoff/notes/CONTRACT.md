@@ -41,7 +41,7 @@ Keys:
 - is_valid_username NAME
 - message_box, input_box, input_menu (dialog wrappers, unchanged API)
 - get_publicip_from_web_service 4|6 (https), get_default_privateip 4|6
-- multipool_fetch_repo REPO_NAME_OR_URL DEST REF, MULTIPOOL_GITHUB (default https://github.com/mygiglifeinc-glitch)
+- multipool_fetch_repo REPO_NAME_OR_URL DEST REF, MULTIPOOL_GITHUB (default https://github.com/myGIGlife-claude)
 - MULTIPOOL_DEFAULT_PHP_VERSION
 The multi repo ships a copy in required_remote_files/functions.sh that is pushed to remote servers: it must be
 byte-identical to multipool_setup/functions.sh (copy it over after any change there). Same for editconf.py.

@@ -2,7 +2,7 @@
 ### This fork of YiiMP is designed to work with our Ultimate Crypto-Server Installer program.
 Trying to install this on a server not built by our installer will cause headaches, frustrations, and screaming loudly at your monitor.
 
-#### Please go to https://github.com/mygiglifeinc-glitch/Multi-Pool-Installer for our installer.
+#### Please go to https://github.com/myGIGlife-claude/Multi-Pool-Installer for our installer.
 
 ## Requirements
 

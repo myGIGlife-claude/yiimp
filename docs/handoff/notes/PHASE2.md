@@ -1,6 +1,6 @@
 # Phase 2: new stratum protocols in YiiMP — shared rules
 
-Repo: owner's fork github.com/mygiglifeinc-glitch/yiimp (GPL-3). Base: branch claude/multipool-installer-update-s3rama
+Repo: owner's fork github.com/myGIGlife-claude/yiimp (GPL-3). Base: branch claude/multipool-installer-update-s3rama
 (Phase 1: 121 algos, MWEB, per-algo version rules, Raptoreum coinbase). Each agent works in its own git worktree/branch.
 
 - Reference code: public GitHub repos can be cloned read-only (git clone --depth 1 https://github.com/<o>/<r>
