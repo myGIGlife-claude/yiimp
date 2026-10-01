@@ -18,7 +18,7 @@ static bool job_assign_client(YAAMP_JOB *job, YAAMP_CLIENT *client, double maxha
 	RETURN_ON_CONDITION(client_find_job_history(client, job->id), true);
 	RETURN_ON_CONDITION(maxhash > 0 && job->speed + client->speed > maxhash, true);
 
-	if(!g_autoexchange && maxhash >= 0. && client->coinid != job->coind->id) {
+	if(!g_autoexchange && maxhash >= 0. && job->coind && client->coinid != job->coind->id) {
 		//debuglog("prevent client %c on %s, not the right coin\n",
 		//	client->username[0], job->coind->symbol);
 		return true;

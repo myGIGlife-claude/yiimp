@@ -33,6 +33,9 @@ public:
 	pthread_t thread;
 	YAAMP_SOCKET *sock;
 
+	time_t notify_sec; // mining.notify rate limit
+	int notify_count;
+
 	char jobid[32];
 	char nonce1[32];
 	int nonce2size;

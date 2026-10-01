@@ -458,10 +458,8 @@ void db_update_remotes(YAAMP_DB *db)
 				continue;
 			}
 
-			pthread_t thread;
-
-			pthread_create(&thread, NULL, remote_thread, remote);
-			pthread_detach(thread);
+			// remote_delete() detaches it, db_update_remotes cancels it
+			pthread_create(&remote->thread, NULL, remote_thread, remote);
 
 			g_list_remote.AddTail(remote);
 			usleep(100*YAAMP_MS);
@@ -510,7 +508,9 @@ void db_update_remotes(YAAMP_DB *db)
 			remote->status = YAAMP_REMOTE_TERMINATE;
 			remote->kill = true;
 
-			remote_close(remote);
+			// the remote thread is in recv() on this socket: wake it up, it
+			// closes the socket itself (a close here frees it under its feet)
+			if(remote->sock) shutdown(remote->sock->sock, SHUT_RDWR);
 			continue;
 		}
 
