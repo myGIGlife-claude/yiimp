@@ -1,6 +1,6 @@
 # Phase 1: new algorithms in the YiiMP stratum — shared spec
 
-Repo: the owner's fork github.com/mygiglifeinc-glitch/yiimp (default branch `next`). GPL-3 project, so reference code
+Repo: the owner's fork github.com/myGIGlife-claude/yiimp (default branch `next`). GPL-3 project, so reference code
 under MIT/BSD/ISC/Apache/CC0/GPL-3-compatible licenses may be imported; keep original copyright headers and note the
 source (repo + commit) in a comment at the top of each imported file.
 

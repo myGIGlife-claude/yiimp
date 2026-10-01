@@ -13,7 +13,7 @@ everything that matters is in the repos.
 1. Clone the five repos (default branches are up to date):
    ```
    for r in Multi-Pool-Installer multipool_setup multipool_yiimp_single multipool_yiimp_multi yiimp; do
-     git clone https://github.com/mygiglifeinc-glitch/$r
+     git clone https://github.com/myGIGlife-claude/$r
    done
    ```
    yiimp's default branch is `next`; the installers use `master`.
@@ -24,11 +24,11 @@ everything that matters is in the repos.
 
    | Repo | Role | Branch |
    |---|---|---|
-   | `mygiglifeinc-glitch/Multi-Pool-Installer` | Entry point: `bootstrap.sh` clones multipool_setup | `master` |
-   | `mygiglifeinc-glitch/multipool_setup` | User setup, `/etc/multipool.conf`, the menu; clones single or multi | `master` |
-   | `mygiglifeinc-glitch/multipool_yiimp_single` | YiiMP single-server installer; clones yiimp | `master` |
-   | `mygiglifeinc-glitch/multipool_yiimp_multi` | YiiMP multi-server installer; clones yiimp | `master` |
-   | `mygiglifeinc-glitch/yiimp` | The YiiMP fork (web + stratum); this handoff lives here | `next` |
+   | `myGIGlife-claude/Multi-Pool-Installer` | Entry point: `bootstrap.sh` clones multipool_setup | `master` |
+   | `myGIGlife-claude/multipool_setup` | User setup, `/etc/multipool.conf`, the menu; clones single or multi | `master` |
+   | `myGIGlife-claude/multipool_yiimp_single` | YiiMP single-server installer; clones yiimp | `master` |
+   | `myGIGlife-claude/multipool_yiimp_multi` | YiiMP multi-server installer; clones yiimp | `master` |
+   | `myGIGlife-claude/yiimp` | The YiiMP fork (web + stratum); this handoff lives here | `next` |
 
    The menu's legacy options (Daemon Builder, NOMP, YiiMP Stratum Upgrade) still clone the
    old `cryptopool-builders/multipool_coin_builder`, `multipool_nomp` and
@@ -112,7 +112,7 @@ changing anything.
   releases, and apply current best coding practices and server security.
   That part is done and merged (see section 3).
 - Follow-up requests, in order:
-  1. Add their fork of YiiMP (`mygiglifeinc-glitch/yiimp`) to the project,
+  1. Add their fork of YiiMP (`myGIGlife-claude/yiimp`) to the project,
      copy its missing branches, make it PHP 8 compatible, move build fixes
      into it, and modernize it. Done and merged.
   2. "Research all of the minable coins' stratum protocols that YiiMP doesn't
@@ -147,11 +147,11 @@ changing anything.
 
 | Repo | Role | Default branch |
 |---|---|---|
-| `mygiglifeinc-glitch/Multi-Pool-Installer` | `bootstrap.sh`, the `curl … \| bash` entry point | master |
-| `mygiglifeinc-glitch/multipool_setup` | user setup, preflight, menu, `functions.sh` | master |
-| `mygiglifeinc-glitch/multipool_yiimp_single` | YiiMP on one server | master |
-| `mygiglifeinc-glitch/multipool_yiimp_multi` | YiiMP on several servers over SSH | master |
-| `mygiglifeinc-glitch/yiimp` | YiiMP itself: PHP web (Yii 1.1) + C++ stratum | **next** |
+| `myGIGlife-claude/Multi-Pool-Installer` | `bootstrap.sh`, the `curl … \| bash` entry point | master |
+| `myGIGlife-claude/multipool_setup` | user setup, preflight, menu, `functions.sh` | master |
+| `myGIGlife-claude/multipool_yiimp_single` | YiiMP on one server | master |
+| `myGIGlife-claude/multipool_yiimp_multi` | YiiMP on several servers over SSH | master |
+| `myGIGlife-claude/yiimp` | YiiMP itself: PHP web (Yii 1.1) + C++ stratum | **next** |
 
 Chain: `bootstrap.sh` → clones `multipool_setup` (master, override with `TAG`)
 → `start.sh`/menu → `bootstrap_single.sh` or `bootstrap_multi.sh` → clones
@@ -159,7 +159,7 @@ Chain: `bootstrap.sh` → clones `multipool_setup` (master, override with `TAG`)
 `YIIMP_MULTI_REF`). These then clone YiiMP from `${MULTIPOOL_GITHUB}/yiimp.git`
 (default branch; `YIIMP_REPO`/`YIIMP_BRANCH` override).
 
-- `MULTIPOOL_GITHUB` defaults to `https://github.com/mygiglifeinc-glitch` (in `functions.sh`).
+- `MULTIPOOL_GITHUB` defaults to `https://github.com/myGIGlife-claude` (in `functions.sh`).
 - Stratum Upgrade, NOMP and Daemon Builder are "legacy": they still come
   from their last cryptopool-builders release, and the menu asks before running them.
 - The designated working branch in the four installer repos is
@@ -272,7 +272,7 @@ All three sit on top of the Phase 1 PRs (#3), so merge #3 first. **Next: check i
 The rest of this section is the history of how Phase 2 was built.
 
 
-Branches in `mygiglifeinc-glitch/yiimp`, all pushed:
+Branches in `myGIGlife-claude/yiimp`, all pushed:
 
 | Branch | Content | State |
 |---|---|---|
