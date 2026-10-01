@@ -1,4 +1,5 @@
 <?php
+$csrf = $this->csrfField(); // session token of the POST forms (CSRF)
 if (!$coin) $this->goback();
 
 JavascriptFile("/extensions/jqplot/jquery.jqplot.js");
@@ -112,6 +113,7 @@ echo <<<end
 <div id="pager" style="float: right; width: 200px; text-align: right; margin-right: 16px; margin-top: 8px;">$pager</div>
 <div id="form" style="width: 660px; height: 50px; overflow: hidden;">
 <form action="{$actionUrl}" method="POST" style="padding-top: 4px; width: 650px;">
+$csrf
 <input type="text" name="height" class="main-text-input" placeholder="Height" style="width: 80px;">
 <input type="text" name="txid" class="main-text-input" placeholder="Transaction hash" style="width: 450px; margin: 4px;">
 <input type="submit" value="Search" class="main-submit-button" >

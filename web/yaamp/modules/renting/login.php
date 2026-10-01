@@ -1,4 +1,5 @@
 <?php
+$csrf = $this->csrfField(); // session token of the POST forms (CSRF)
 $algo = user()->getState('yaamp-algo');
 
 JavascriptFile("/extensions/jqplot/jquery.jqplot.js");
@@ -35,6 +36,7 @@ echo <<<end
 
 <div class="yaamp-login-container">
 <form action='/renting/login' method='post'>
+$csrf
 
 end;
 
@@ -115,6 +117,7 @@ echo <<<end
 
 <div id="deposit-create-dialog" style='display: none; overflow: hidden;'>
 <form action='/renting/create' method='post'>
+$csrf
 <p>You are about to create a new Bitcoin deposit address to send fund to. You will then be able to rent hashpower from yaamp.</p>
 
 <p>It is recommended that you send small amount (minimum 0.001) to start with and make sure your pool is working fine with yaamp.</p>

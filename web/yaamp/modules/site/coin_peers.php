@@ -1,4 +1,5 @@
 <?php
+$csrf = $this->csrfField(); // session token of the POST forms (CSRF)
 if (!$coin) $this->goback();
 
 $this->pageTitle = 'Peers - ' . $coin->symbol;
@@ -23,6 +24,7 @@ div.form { text-align: right; height: 30px; width: 350px; float: right; margin-t
 
 <div class="form">
 <form action="/site/peerAdd?id={$coin->id}" method="post" style="padding: 8px;">
+$csrf
 <input type="text" name="node" class="main-text-input" placeholder="addr[:port]" autocomplete="off" style="width: 150px; margin-right: 4px;">
 <input type="submit" value="Add node" class="main-submit-button" >
 </form>

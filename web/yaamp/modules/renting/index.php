@@ -1,4 +1,5 @@
 <?php
+$csrf = $this->csrfField(); // session token of the POST forms (CSRF)
 $algo = user()->getState('yaamp-algo');
 
 JavascriptFile("/extensions/jqplot/jquery.jqplot.js");
@@ -292,6 +293,7 @@ function yaamp_withdraw()
 <div id="yaamp-withdraw" style='display: none; overflow: hidden;'>
 <br>
 <form action='/renting/withdraw' method='post'>
+$csrf
 
 Amount: <input type="text" name="withdraw_amount" class="main-text-input" style='width: 100px;' value='$balance'><br>
 Address: <input type="text" name="withdraw_address" class="main-text-input" style='width: 300px;'>

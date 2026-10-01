@@ -418,8 +418,10 @@ class RentingController extends CommonController
             $speed = $job->speed / 1000000;
         }
 
+        $csrf = $this->csrfField();
         echo <<<end
 <form id='order-edit-form' action='/renting/ordersave' method='post'>
+$csrf
 <input type="hidden" value='$id' name="order_id">
 <input type="hidden" value='$renter->id' name="order_renterid">
 <input type="hidden" value='$renter->address' name="order_address">

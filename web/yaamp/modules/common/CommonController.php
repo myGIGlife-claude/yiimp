@@ -40,6 +40,31 @@ class CommonController extends CController
         return false;
     }
 
+    // Per-session token carried by the POST forms. The admin rights are only
+    // granted to a POST which carries it (the headers checked above are not
+    // sent by every client, in which case isCrossSiteRequest() cannot know).
+    public function csrfToken()
+    {
+        $token = user()->getState('yaamp_csrf');
+        if (!is_string($token) || strlen($token) != 32) {
+            $token = bin2hex(random_bytes(16));
+            user()->setState('yaamp_csrf', $token);
+        }
+        return $token;
+    }
+
+    public function csrfField()
+    {
+        return '<input type="hidden" name="csrf" value="' . $this->csrfToken() . '">';
+    }
+
+    public function hasValidCsrfToken()
+    {
+        $token = user()->getState('yaamp_csrf');
+        $given = arraySafeVal($_POST, 'csrf', arraySafeVal($_SERVER, 'HTTP_X_CSRF_TOKEN', ''));
+        return is_string($token) && $token !== '' && is_string($given) && hash_equals($token, $given);
+    }
+
     protected function sendSecurityHeaders()
     {
         if (php_sapi_name() == 'cli' || headers_sent()) return;
@@ -79,6 +104,12 @@ class CommonController extends CController
             else if ($this->isCrossSiteRequest())
             {
                 debuglog("admin rights ignored for cross-site request {$this->id}/{$action->id} from $client_ip");
+                $this->admin = false;
+            }
+            // CSRF: the admin forms carry the session token
+            else if (app()->request->isPostRequest && php_sapi_name() != 'cli' && !$this->hasValidCsrfToken())
+            {
+                debuglog("admin rights ignored for POST without token {$this->id}/{$action->id} from $client_ip");
                 $this->admin = false;
             }
         }

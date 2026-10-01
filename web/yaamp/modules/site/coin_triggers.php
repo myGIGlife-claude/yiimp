@@ -1,4 +1,5 @@
 <?php
+$csrf = $this->csrfField(); // session token of the POST forms (CSRF)
 if (!$coin) $this->goback();
 $this->pageTitle = 'Triggers - ' . $coin->symbol;
 
@@ -96,6 +97,7 @@ echo '</tbody></table><br/>';
 echo <<<end
 <div class="form">
 <form action="/site/triggerAdd?id={$coin->id}" method="post" style="padding: 0px;">
+$csrf
 <input type="hidden" name="idcoin" value="{$coin->id}">
 <label for="notifytype">Type</label>
 <select id="notifytype" name="notifytype">

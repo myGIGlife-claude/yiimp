@@ -1,4 +1,5 @@
 <?php
+$csrf = $this->csrfField(); // session token of the POST forms (CSRF)
 $algo = user()->getState('yaamp-algo');
 
 JavascriptFile("/extensions/jqplot/jquery.jqplot.js");
@@ -31,6 +32,7 @@ echo <<<end
 
 <div class="yaamp-login-container">
 <form action='/renting?address=$renter->address' method='post'>
+$csrf
 
 <p style='font-size: 1.2em;'><b>This is your bitcoin deposit address to use to fund your account.</b></p>
 <p style='font-size: 1.2em;'><b>Save it as you will need it to login the next time you want to access your account.</b></p>
