@@ -192,7 +192,7 @@ char *rpc_do_call(YAAMP_RPC *rpc, char const *data)
 	}
 
 	int datalen = atoi(header_value(buffer, "Content-Length:", tmp));
-	if(!datalen)
+	if(datalen <= 0)
 	{
 		debuglog("ERROR: rpc No Content-Length header!\n");
 		CommonUnlock(&rpc->mutex);
@@ -209,7 +209,11 @@ char *rpc_do_call(YAAMP_RPC *rpc, char const *data)
 		return NULL;
 	}
 
-	memcpy(databuf, p+4, bufpos+1);
+	// never copy more than the announced length (a shorter Content-Length
+	// than the data already received would overflow databuf)
+	if(bufpos > datalen) bufpos = datalen;
+	memcpy(databuf, p+4, bufpos);
+	databuf[bufpos] = 0;
 
 	while(bufpos < datalen)
 	{

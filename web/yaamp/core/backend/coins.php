@@ -321,7 +321,7 @@ function BackendCoinsUpdate()
         if ($coin->pool_ttf > 2147483647)
             $coin->pool_ttf = 2147483647;
 
-        if (strstr($coin->image, 'http')) {
+        if (preg_match('#^https?://#i', (string) $coin->image)) {
             $data        = file_get_contents($coin->image);
             $coin->image = "/images/coin-$coin->id.png";
 

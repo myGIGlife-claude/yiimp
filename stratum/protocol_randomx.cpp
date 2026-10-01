@@ -948,9 +948,10 @@ static bool randomx_submit(YAAMP_CLIENT *client, json_value *params)
 		return true;
 	}
 	if (memcmp(hash, claimed, 32)) {
+		// a forged result costs us a full RandomX hash: drop the connection
 		rx_reject(client, job, 25, "Invalid result", nonce);
 		object_unlock(job);
-		return true;
+		return false;
 	}
 
 	// difficulty of the hash: 2^64 / the top 64 bits
@@ -1009,7 +1010,13 @@ static bool randomx_request(YAAMP_CLIENT *client, const char *method, json_value
 		*keep = rx_send_result(client, job_json) >= 0;
 		return true;
 	}
-	// the Bitcoin stratum methods (mining.update_block of blocknotify...)
+	// only mining.update_block (blocknotify) goes to the Bitcoin stratum
+	// methods: their subscribe/authorize/submit don't handle cryptonote jobs
+	if (!strncmp(method, "mining.", 7) && strcmp(method, "mining.update_block")) {
+		randomx_send_error(client, 20, "Not supported");
+		*keep = false;
+		return true;
+	}
 	return false;
 }
 

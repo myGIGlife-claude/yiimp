@@ -40,6 +40,13 @@ class RentingController extends CommonController
 
     public function actionLogin()
     {
+        // no brute force of the renter passwords
+        if (!empty($_POST) && !LimitRequest('renting-login', 2))
+        {
+            $this->render('login');
+            return;
+        }
+
         $deposit = isset($_POST['deposit_address']) ? substr($_POST['deposit_address'], 0, 35) : '';
         $password = isset($_POST['deposit_password']) ? substr($_POST['deposit_password'], 0, 64) : '';
 
@@ -482,6 +489,14 @@ end;
         if (!app()->request->isPostRequest)
         {
             $this->redirect("/renting");
+            return;
+        }
+
+        // accounts without password login with the deposit address only
+        if ((string) $renter->password === '')
+        {
+            user()->setFlash('error', "Set a password before a withdraw.");
+            $this->redirect("/renting/settings");
             return;
         }
 

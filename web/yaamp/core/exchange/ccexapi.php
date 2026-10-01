@@ -57,7 +57,7 @@ class CcexAPI
 
 		if(!$feed) {
 
-			debuglog("c-cex error $url");
+			debuglog("c-cex error ".preg_replace('/(key|apikey)=[^&]*/', '$1=***', $url));
 			return null; //array('error' => 'Invalid parameters');
 
 		} else {

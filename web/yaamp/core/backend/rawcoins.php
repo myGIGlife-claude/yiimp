@@ -426,6 +426,9 @@ function updateRawcoins()
 
 function updateRawCoin($marketname, $symbol, $name = 'unknown')
 {
+    // symbol and name come from the exchange apis and are shown unescaped
+    // in many (admin) views: keep them plain text
+    $symbol = preg_replace('/[^A-Za-z0-9$._-]/', '', (string) $symbol);
     if ($symbol == 'BTC')
         return;
 
@@ -484,7 +487,7 @@ function updateRawCoin($marketname, $symbol, $name = 'unknown')
         $coin                 = new db_coins;
         $coin->txmessage      = true;
         $coin->hassubmitblock = true;
-        $coin->name           = $name;
+        $coin->name           = (preg_replace('/[^\w .()-]/u', '', (string) $name) ?: 'unknown');
         $coin->algo           = $algo;
         $coin->symbol         = $symbol;
         $coin->created        = time();
@@ -497,7 +500,7 @@ function updateRawCoin($marketname, $symbol, $name = 'unknown')
     }
 
     else if ($coin && $coin->name == 'unknown' && $name != 'unknown') {
-        $coin->name = $name;
+        $coin->name = (preg_replace('/[^\w .()-]/u', '', (string) $name) ?: 'unknown');
         $coin->save();
     }
 

@@ -133,7 +133,8 @@ if (!empty($query)) {
     if ($result === false) {
         $result = $remote->error;
     }
-    debuglog("{$coin->symbol} CONSOLE {$query}");
+    // only the method: the params can be secrets (walletpassphrase, importprivkey...)
+    debuglog("{$coin->symbol} CONSOLE ".strtok(trim($query), " "));
 }
 
 if (!empty($remote->error) && $remote->error != $result) {

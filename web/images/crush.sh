@@ -1,7 +1,8 @@
 #!/bin/sh
-find $1 -name "*.png" | while read png
+tmp=$(mktemp) || exit 1
+trap 'rm -f "$tmp"' EXIT
+find "$1" -name "*.png" | while IFS= read -r png
 do
   echo "crushing $png"
-  pngcrush -brute "$png" /tmp/temp.png
-  mv -f /tmp/temp.png "$png"
-done;
+  pngcrush -brute "$png" "$tmp" && cp -f "$tmp" "$png"
+done

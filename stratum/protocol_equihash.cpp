@@ -235,6 +235,7 @@ static bool coinbasetxn_split(const char *data, int extranonce_size, char *coinb
 	if (!read_compactsize(data, hexlen, pos, &count, &l) || count != 1) return false;
 	pos += l + 2*36; // prevout
 	if (!read_compactsize(data, hexlen, pos, &script_len, &l)) return false;
+	if (script_len > 100) return false; // 2*script_len could wrap below
 	size_t script_pos = pos + l;
 	size_t script_end = script_pos + 2*script_len;
 	if (script_end > hexlen) return false;
@@ -269,6 +270,8 @@ static void coinbase_to_zcash(string &coinbase, int version)
 
 static bool eq_template_prepare(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *gbt)
 {
+	// the daemon prevhash is binlified into 32 bytes
+	if (strlen(templ->prevhash_hex) != 64 || !ishexa(templ->prevhash_hex, 64)) return false;
 	// (n,k): Bitcoin Gold gives them in the template, else the conf/algo
 	int n = g_eq_n, k = g_eq_k;
 	json_int_t gn = json_get_int(gbt, "equihashn"), gk = json_get_int(gbt, "equihashk");

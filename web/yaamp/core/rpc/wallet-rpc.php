@@ -545,7 +545,8 @@ class WalletRPC {
 			// if its a raw json query...
 			if (strpos($query,"{") !== false && json_decode($query)) {
 				try {
-					debuglog($query);
+					$json = json_decode($query);
+					debuglog("raw json query ".(is_object($json) && isset($json->method) && is_string($json->method) ? $json->method : ''));
 					$result = $this->rpc->request_json($query);
 				} catch (Exception $e) {
 					$result = false;

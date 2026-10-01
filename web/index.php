@@ -26,6 +26,12 @@ if ($isbot) {
 	die();
 }
 
+// also for the error pages (sent before any controller runs)
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header("Content-Security-Policy: frame-ancestors 'self'");
+header('Referrer-Policy: strict-origin-when-cross-origin');
+
 try
 {
 	$app->run();

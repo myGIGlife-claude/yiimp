@@ -114,6 +114,8 @@ static void kawpow_job_notify(YAAMP_JOB *job, YAAMP_CLIENT *client, char *buffer
 
 static bool kawpow_template_prepare(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *gbt)
 {
+	// the daemon prevhash is binlified into 32 bytes
+	if (strlen(templ->prevhash_hex) != 64 || !ishexa(templ->prevhash_hex, 64)) return false;
 	static uint32_t counter = 0;
 	char extranonce[32];
 

@@ -3,6 +3,8 @@
 
 double client_normalize_difficulty(double difficulty)
 {
+	// d=nan (miner password) passed every comparison below
+	if(!isfinite(difficulty)) difficulty = g_stratum_difficulty;
 	if(difficulty < g_stratum_min_diff) difficulty = g_stratum_min_diff;
 	else if(difficulty < 1) difficulty = floor(difficulty*1000/2)/1000*2;
 	else if(difficulty > 1) difficulty = floor(difficulty/2)*2;

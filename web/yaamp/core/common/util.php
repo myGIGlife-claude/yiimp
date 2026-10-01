@@ -31,7 +31,8 @@ function arraySafeVal($arr, $key, $default = NULL)
 
 function getparam($p, $default = '')
 {
-    return isset($_REQUEST[$p]) ? $_REQUEST[$p] : $default;
+    // a param[]= array is a TypeError (500) in the string functions of the callers
+    return (isset($_REQUEST[$p]) && !is_array($_REQUEST[$p])) ? $_REQUEST[$p] : $default;
 }
 
 function gethexparam($p, $default = '')
