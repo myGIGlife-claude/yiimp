@@ -130,15 +130,19 @@ function NotifyCheckRules()
 
                 $command = $rule->notifycmd;
 
-                // replace some possible vars in user command
-                $command = str_replace('$X', $value, $command);
-                $command = str_replace('$F', $field, $command);
-                $command = str_replace('$T', $rule->conditiontype, $command);
-                $command = str_replace('$V', $rule->conditionvalue, $command);
-                $command = str_replace('$N', $coin->name, $command);
-                $command = str_replace('$SYM', $coin->symbol, $command);
-                $command = str_replace('$S2', $coin->symbol2, $command);
-                $command = str_replace('$A', $coin->master_wallet, $command);
+                // replace some possible vars in user command, each value as a single
+                // shell word (coin names and wallet addresses come from the daemons
+                // and the exchanges). A var the trigger already quotes, "$X" or '$X',
+                // is replaced with its quotes, so the old triggers keep working.
+                $vars = array(
+                    'X' => $value, 'F' => $field, 'T' => $rule->conditiontype,
+                    'V' => $rule->conditionvalue, 'N' => $coin->name, 'SYM' => $coin->symbol,
+                    'S2' => $coin->symbol2, 'A' => $coin->master_wallet,
+                );
+                foreach ($vars as $name => $val) {
+                    $command = preg_replace_callback('/(["\']?)\$' . $name . '\1/',
+                        function ($m) use ($val) { return escapeshellarg((string) $val); }, $command);
+                }
 
                 $res = system($command);
                 if ($res === false) debuglog("trigger: {$coin->symbol} unable to execute '{$command}'!");
