@@ -833,6 +833,8 @@ uint64_t share_to_target(double diff)
 {
         int i, shift = 29;
         unsigned char targ[32];
+        // 0 (no subscribe yet) or inf gives ftarg = inf: the loop below never ends
+        if (!(diff > 0.) || !isfinite(diff)) return 0;
         for (i=0; i<32; i++)
             targ[i]=0;
         double ftarg = (double)0x0000ffff / diff;

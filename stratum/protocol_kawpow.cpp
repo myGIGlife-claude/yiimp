@@ -202,6 +202,13 @@ static bool kawpow_submit(YAAMP_CLIENT *client, json_value *json_params)
 		return false;
 	}
 
+	// no share before mining.subscribe (difficulty 0, empty extranonce1)
+	if (!(client->difficulty_actual > 0.) || !client->extranonce1[0]) {
+		clientlog(client, "submit before subscribe");
+		client->submit_bad++;
+		return false;
+	}
+
 	const char *jobid_str = json_params->u.array.values[1]->u.string.ptr;
 	if (strlen(jobid_str) > 32) {
 		clientlog(client, "bad json, wrong jobid len");
