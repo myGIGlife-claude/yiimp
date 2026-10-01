@@ -23,10 +23,10 @@ void coind_getauxblock(YAAMP_COIND *coind)
 	coind->aux.chainid = json_get_int(json_result, "chainid");
 
 	const char *p = json_get_string(json_result, "target");
-	if(p) strcpy(coind->aux.target, p);
+	if(p) snprintf(coind->aux.target, sizeof(coind->aux.target), "%s", p);
 
 	p = json_get_string(json_result, "hash");
-	if(p) strcpy(coind->aux.hash, p);
+	if(p && strlen(p) == 64) snprintf(coind->aux.hash, sizeof(coind->aux.hash), "%s", p);
 
 //	if(strcmp(coind->symbol, "UNO") == 0)
 //	{
@@ -83,8 +83,17 @@ YAAMP_JOB_TEMPLATE *coind_create_template_memorypool(YAAMP_COIND *coind)
 //	templ->height = json_get_int(json_result, "height");
 	sprintf(templ->version, "%08x", (unsigned int)json_get_int(json_result, "version"));
 	sprintf(templ->ntime, "%08x", (unsigned int)json_get_int(json_result, "time"));
-	strcpy(templ->nbits, json_get_string(json_result, "bits"));
-	strcpy(templ->prevhash_hex, json_get_string(json_result, "previousblockhash"));
+	const char *bits = json_get_string(json_result, "bits");
+	const char *prevhash = json_get_string(json_result, "previousblockhash");
+	if(!bits || strlen(bits) >= sizeof(templ->nbits) || !prevhash || strlen(prevhash) >= sizeof(templ->prevhash_hex))
+	{
+		coind_error(coind, "getmemorypool bits/previousblockhash");
+		json_value_free(json);
+		delete templ;
+		return NULL;
+	}
+	strcpy(templ->nbits, bits);
+	strcpy(templ->prevhash_hex, prevhash);
 
 	json_value_free(json);
 
@@ -289,7 +298,7 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 	if(json_rules && !strlen(coind->witness_magic) && json_rules->u.array.length) {
 		for (int i=0; i<json_rules->u.array.length; i++) {
 			json_value *val = json_rules->u.array.values[i];
-			if(!strcmp(val->u.string.ptr, "segwit")) {
+			if(val && val->type == json_string && !strcmp(val->u.string.ptr, "segwit")) {
 				const char *commitment = json_get_string(json_result, "default_witness_commitment");
 				strcpy(coind->witness_magic, "aa21a9ed");
 				if (commitment && strlen(commitment) > 12) {
@@ -305,7 +314,7 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 	}
 
 	json_value *json_tx = json_get_array(json_result, "transactions");
-	if(!json_tx)
+	if(!json_tx || !json_is_array(json_tx))
 	{
 		coind_error(coind, "getblocktemplate transactions");
 		json_value_free(json);
@@ -353,7 +362,7 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 	// LBC Claim Tree (with wallet gbt patch)
 	const char *claim = json_get_string(json_result, "claimtrie");
 	if (claim) {
-		strcpy(templ->claim_hex, claim);
+		snprintf(templ->claim_hex, sizeof(templ->claim_hex), "%s", claim);
 		// debuglog("claimtrie: %s\n", templ->claim_hex);
 	}
 	else if (strcmp(coind->symbol, "LBC") == 0) {
@@ -370,21 +379,22 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 			return NULL;
 		claim = json_get_string(json_obj, "hash");
 		if (claim) {
-			strcpy(templ->claim_hex, claim);
+			snprintf(templ->claim_hex, sizeof(templ->claim_hex), "%s", claim);
 			debuglog("claim_hex: %s\n", templ->claim_hex);
 		}
 	}
 	else if (strcmp(coind->symbol, "BITC") == 0) {
-		if (strlen(json_get_string(json_result, "priceinfo")) < 1000) {
+		const char *priceinfo = json_get_string(json_result, "priceinfo");
+		if (priceinfo && strlen(priceinfo) < 1000) {
 			templ->needpriceinfo = json_get_bool(json_result, "needpriceinfo");
             if (templ->needpriceinfo)
-				strcpy(templ->priceinfo, json_get_string(json_result, "priceinfo"));
+				strcpy(templ->priceinfo, priceinfo);
 		}
 	}
 
 	const char *sc_root = json_get_string(json_result, "stateroot");
 	const char *sc_utxo = json_get_string(json_result, "utxoroot");
-	if (sc_root && sc_utxo) {
+	if (sc_root && sc_utxo && strlen(sc_root) == 64 && strlen(sc_utxo) == 64) {
 		// LUX Smart Contracts, 144-bytes block headers
 		strcpy(&templ->extradata_hex[ 0], sc_root); // 32-bytes hash (64 in hexa)
 		strcpy(&templ->extradata_hex[64], sc_utxo); // 32-bytes hash too
@@ -445,18 +455,26 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 	for(int i = 0; i < json_tx->u.array.length; i++)
 	{
 		const char *p = json_get_string(json_tx->u.array.values[i], "hash");
+		const char *d = json_get_string(json_tx->u.array.values[i], "data");
 		char hash_be[256] = { 0 };
 
 		if (templ->has_filtered_txs) {
 			templ->filtered_txs_fee += json_get_int(json_tx->u.array.values[i], "fee");
 			continue;
 		}
+		// the hashes are concatenated in pairs into 64 byte buffers (merkle)
+		if (!p || strlen(p) != 64 || !d) {
+			coind_error(coind, "getblocktemplate tx hash/data");
+			json_value_free(json);
+			delete templ;
+			return NULL;
+		}
 
 		string_be(p, hash_be);
 		txhashes.push_back(hash_be);
 
 		const char *txid = json_get_string(json_tx->u.array.values[i], "txid");
-		if(txid && strlen(txid)) {
+		if(txid && strlen(txid) == 64) {
 			char txid_be[256] = { 0 };
 			string_be(txid, txid_be);
 			txids.push_back(txid_be);
@@ -467,7 +485,6 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 			templ->has_segwit_txs = false; // force disable if not supported (no txid fields)
 		}
 
-		const char *d = json_get_string(json_tx->u.array.values[i], "data");
 		templ->txdata.push_back(d);
 
 		// if wanted, we can limit the count of txs to include
@@ -515,7 +532,7 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 		// default commitment is already computed correctly
 		const char *commitment = json_get_string(json_result, "default_witness_commitment");
 		if (commitment) {
-			sprintf(coind->commitment, "%s", commitment);
+			snprintf(coind->commitment, sizeof(coind->commitment), "%s", commitment);
 		} else {
 			templ->has_segwit_txs = false;
 		}
