@@ -42,9 +42,7 @@ everything that matters is in the repos.
 4. Work queue, in order:
    1. Fix the BIP34 height bug for blocks 1-16 (below). Small, with KATs.
    2. Payout test for each algo family (below), with the owner.
-   3. Solo mining (`m=solo`), below.
-   4. Later: installer support for monerod/monero-wallet-rpc, the "add a coin from GitHub"
-      admin page and the front-end redesign (mockup linked below).
+   3. Later: installer support for monerod/monero-wallet-rpc.
 5. The owner's rules (also in section 1a):
    - Give a plan or list before large changes, and check in after each phase.
    - Merge only when the owner says so. Plain pushes only, never force-push or rewrite.
@@ -77,15 +75,7 @@ everything that matters is in the repos.
 > Also still untested: merge mining (Lyncoin), PoS coins (Pulsar), live mainnet.
 > See `docs/BRIDGE.md` and the Phase 3 notes below.
 >
-> **To do, owner's request: solo mining** (from the owner's new-coin project).
-> - Miners pick solo with the password convention most YiiMP forks use: `-p c=COIN,m=solo`.
->   Without `m=solo` the miner is in the shared pool as now.
-> - Keep the two apart: solo shares never count toward shared-pool rewards, and shared
->   shares never count toward a solo block. A solo block pays its finder only (minus the
->   solo fee). Things to separate: share rows and earnings, hashrate and worker stats, the
->   pool's own round/effort figures, and the web pages that show them. Checked on
->   2026-09-30: the stratum has no solo code yet (`grep -i solo stratum/` finds nothing).
-> - **Bug to fix first, confirmed in the code:** the block height in the coinbase is wrong
+> - **BIP34 height bug (fixed in #11):** the block height in the coinbase is wrong
 >   for blocks 1-16. `ser_number()` (`stratum/util.cpp`, used by `coinbase.cpp`) writes a
 >   one-byte push (`01 01` for height 1), but BIP34 nodes expect what `CScript() << nHeight`
 >   makes: `OP_1`..`OP_16` (`0x51`..`0x60`) for heights 1-16. The node rejects those
@@ -93,11 +83,6 @@ everything that matters is in the repos.
 >   first 16 blocks, which is when a new coin launched on this pool needs it. Add a KAT
 >   for heights 0, 1, 16, 17, 127, 128, 255, 256 and 65536.
 >
-> **Idea for later, owner's request:** a "build a coin from its GitHub link" page in the
-> admin (read the repo, detect the algo, build the daemon in an isolated container,
-> configure it, add the coin disabled until synced). There's a clickable mockup of it and
-> of a redesigned front end and admin: https://claude.ai/artifact/MUkvezriwZ5KNB58qwAeeL.
-> Mockup only, nothing built yet.
 > Merge order: PRs #3, then #4, then the Phase 3 PR, and only when the owner says so. Written by the Claude Code session that did this
 work, so another session can continue where it stopped. Read it all before
 changing anything.
