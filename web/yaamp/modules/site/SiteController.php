@@ -10,12 +10,36 @@ class SiteController extends CommonController
     //
     public function actionAdminRights()
     {
-        $client_ip = arraySafeVal($_SERVER, 'REMOTE_ADDR');
+        $client_ip = getClientIP();
         $valid     = isAdminIP($client_ip);
 
-        if (arraySafeVal($_SERVER, 'HTTP_X_FORWARDED_FOR', '') != '') {
+        // a forwarded header not added by a trusted proxy (getClientIP ignores it)
+        if (arraySafeVal($_SERVER, 'HTTP_X_FORWARDED_FOR', '') != '' && $client_ip == arraySafeVal($_SERVER, 'REMOTE_ADDR')) {
             debuglog("admin access attempt via IP spoofing!");
             $valid = false;
+        }
+
+        // optional password, asked once the ip check passed
+        if ($valid && YAAMP_ADMIN_PASSWORD_HASH !== '') {
+            if (!app()->request->isPostRequest) {
+                $this->render('adminlogin');
+                return;
+            }
+            $password = arraySafeVal($_POST, 'password', '');
+            if (!LimitRequest('admin-login', 3)) {
+                $valid = false;
+                $error = 'Too many attempts, wait a few seconds.';
+            } else if (!$this->hasValidCsrfToken() || !is_string($password)
+                || !password_verify($password, YAAMP_ADMIN_PASSWORD_HASH)) {
+                $valid = false;
+                $error = 'Wrong password.';
+            }
+            if (!$valid) {
+                debuglog("admin password failure from $client_ip");
+                user()->setState('yaamp_admin', false);
+                $this->render('adminlogin', array('error' => $error));
+                return;
+            }
         }
 
         if ($valid)

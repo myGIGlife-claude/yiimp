@@ -58,9 +58,8 @@ function GetNetworkLoad()
 
 function getclientip()
 {
-    if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) return $_SERVER['HTTP_X_FORWARDED_FOR'];
-
-    return $_SERVER['REMOTE_ADDR'];
+    // X-Forwarded-For is only trusted from YAAMP_TRUSTED_PROXIES
+    return getClientIP();
 }
 
 /**

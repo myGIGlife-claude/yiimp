@@ -92,7 +92,7 @@ class CommonController extends CController
             ->getState('yaamp_admin'))
         {
             $this->admin = true;
-            $client_ip = arraySafeVal($_SERVER, 'REMOTE_ADDR');
+            $client_ip = getClientIP();
             if (!isAdminIP($client_ip))
             {
                 user()->setState('yaamp_admin', false);

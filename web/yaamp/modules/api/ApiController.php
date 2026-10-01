@@ -18,7 +18,7 @@ class ApiController extends CommonController
 
     public function actionStatus()
     {
-        $client_ip   = arraySafeVal($_SERVER, 'REMOTE_ADDR');
+        $client_ip   = getClientIP();
         $whitelisted = isAdminIP($client_ip);
         if (!$whitelisted && is_file(YAAMP_LOGS . '/overloaded')) {
             header('HTTP/1.0 503 Disabled, server overloaded');
@@ -116,7 +116,7 @@ class ApiController extends CommonController
 
     public function actionCurrencies()
     {
-        $client_ip   = arraySafeVal($_SERVER, 'REMOTE_ADDR');
+        $client_ip   = getClientIP();
         $whitelisted = isAdminIP($client_ip);
         if (!$whitelisted && is_file(YAAMP_LOGS . '/overloaded')) {
             header('HTTP/1.0 503 Disabled, server overloaded');
