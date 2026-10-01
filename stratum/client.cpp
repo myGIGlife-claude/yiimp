@@ -588,10 +588,14 @@ void *client_thread(void *p)
 
 		const char *method = json_get_string(json, "method");
 
-		if (!method && client->stats && client->id_int == client->reqid)
+		if (!method && client->stats && client->workerid && client->id_int == client->reqid)
 		{
+			// one benchmark row per worker and 10 s at most (unbounded inserts otherwise)
 			json_value *result = json_get_object(json, "result");
-			if (result) client_store_stats(client, result);
+			if (result && time(NULL) - client->stats_last >= 10) {
+				client->stats_last = time(NULL);
+				client_store_stats(client, result);
+			}
 			json_value_free(json);
 			continue;
 		}
