@@ -1,4 +1,5 @@
 <?php
+$csrf = $this->csrfField(); // session token of the POST forms (CSRF)
 if (!$coin) $this->goback();
 
 $this->pageTitle = $coin->name . " block explorer";
@@ -76,6 +77,7 @@ $actionUrl = $coin->visible ? '/explorer/' . $coin->symbol : '/explorer/search?i
 
 echo <<<end
 <form action="{$actionUrl}" method="POST" style="padding: 10px;">
+$csrf
 <input type="text" name="height" class="main-text-input" placeholder="block height" style="width: 80px;">
 <input type="text" name="txid" class="main-text-input" placeholder="tx hash" style="width: 450px; margin: 4px;">
 <input type="submit" value="Search" class="main-submit-button" >

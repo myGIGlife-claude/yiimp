@@ -106,7 +106,7 @@ function showPageHeader()
         showItemHeader(controller()->id == 'renting', '/renting', 'Rental');
 
     if (controller()->admin) {
-        if (isAdminIP($_SERVER['REMOTE_ADDR']) === false)
+        if (isAdminIP(getClientIP()) === false)
             debuglog("admin {$_SERVER['REMOTE_ADDR']}");
 
         showItemHeader(controller()->id == 'coin', '/coin', 'Coins');

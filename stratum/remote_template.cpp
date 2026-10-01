@@ -80,6 +80,15 @@ static bool remote_notify_valid(json_value *json_params)
 
 void remote_create_job(YAAMP_REMOTE *remote, json_value *json_params)
 {
+	// each notify allocates a template (~60 KB) freed by the main loop
+	// every ~20 s: a flood from the rented pool would exhaust the memory
+	time_t now = time(NULL);
+	if(remote->notify_sec != now) { remote->notify_sec = now; remote->notify_count = 0; }
+	if(++remote->notify_count > 10) {
+		if(remote->notify_count == 11) debuglog("JOB%d %s: too many mining.notify, ignored\n", remote->id, remote->host);
+		return;
+	}
+
 	int jobid_old = remote->job? remote->job->id: 0;
 	object_delete(remote->job);
 	remote->job = NULL; // marked deleted, pruned (freed) by the main thread

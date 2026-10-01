@@ -1,4 +1,5 @@
 <?php
+$csrf = $this->csrfField(); // session token of the POST forms (CSRF)
 if (!$coin) $this->goback();
 $DCR = ($coin->rpcencoding == 'DCR');
 
@@ -7,9 +8,9 @@ if (!$DCR) $this->goback();
 $this->pageTitle = 'Tickets - ' . $coin->symbol;
 
 // last week
-$list_since = arraySafeVal($_GET, 'since', time() - (7 * 24 * 3600));
+$list_since = (int) arraySafeVal($_GET, 'since', time() - (7 * 24 * 3600));
 
-$maxrows = arraySafeVal($_GET, 'rows', 2500);
+$maxrows = (int) arraySafeVal($_GET, 'rows', 2500);
 
 $remote = new WalletRPC($coin);
 $info = $remote->getinfo();
@@ -51,6 +52,7 @@ Spendable: </b>{$balance} {$coin->symbol}<br/>
 
 <div class="form">
 <form action="/site/ticketBuy?id={$coin->id}" method="post" style="padding: 8px;">
+$csrf
 <input type="button" id="autofill" class="tool-button" value="fill" />
 <input type="text" name="spendlimit" class="main-text-input" placeholder="Spend limit" autocomplete="off" style="width: 80px; margin-right: 4px;">
 <input type="text" name="quantity" class="main-text-input" placeholder="Quantity" style="width: 60px; margin-right: 4px;">

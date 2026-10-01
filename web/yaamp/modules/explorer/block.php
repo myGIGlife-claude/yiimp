@@ -1,4 +1,5 @@
 <?php
+$csrf = $this->csrfField(); // session token of the POST forms (CSRF)
 if (!$coin) return;
 
 $this->pageTitle = $coin->name . " block explorer";
@@ -8,6 +9,7 @@ $txid = gethexparam('txid');
 $q = gethexparam('q');
 if (!empty($q) && ctype_xdigit($q)) $txid = $q;
 elseif (empty($txid)) $txid = 'txid not set'; // prevent highlight
+$image = htmlspecialchars((string) $coin->image, ENT_QUOTES);
 echo <<<END
 <script type="text/javascript">
 function toggleRaw(el) {
@@ -15,7 +17,7 @@ function toggleRaw(el) {
 }
 $(function() {
 	$('#favicon').remove();
-	$('head').append('<link href="{$coin->image}" id="favicon" rel="shortcut icon">');
+	$('head').append('<link href="{$image}" id="favicon" rel="shortcut icon">');
 	$('span.txid').bind('click', function(el) { toggleRaw(el.target); });
 	$('span.txid:contains("{$txid}")').css('color','darkred');
 });
@@ -131,7 +133,7 @@ echo '<tr><td>Coin:</td><td><b>' . $coin->createExplorerLink($coin->name) . '</b
 echo '<tr><td>Blockhash:</td><td><span class="txid monospace">' . $hash . '</span></td></tr>';
 
 echo '</tr><tr class="raw" style="display:none;"><td colspan="2"><div class="json">';
-echo colorizeJson(json_encode($block, 128));
+echo colorizeJson(json_encode($block, 128 | JSON_HEX_TAG | JSON_HEX_AMP));
 echo '</div></td>';
 
 echo '<tr><td>Confirmations:</td><td>' . $confirms . '</td></tr>';
@@ -240,7 +242,7 @@ foreach ($block['tx'] as $txhash)
 
     echo '</tr><tr class="raw" style="display:none;"><td colspan="6"><div class="json">';
     unset($tx['hex']);
-    echo ($nvout > 500) ? 'truncated' : colorizeJson(json_encode($tx, 128));
+    echo ($nvout > 500) ? 'truncated' : colorizeJson(json_encode($tx, 128 | JSON_HEX_TAG | JSON_HEX_AMP));
     echo '</div></td>';
 
     echo "</tr>";
@@ -305,7 +307,7 @@ if ($coin->rpcencoding == 'DCR' && isset($block['stx']))
 
         echo '</tr><tr class="raw" style="display:none;"><td colspan="6"><div class="json">';
         unset($stx['hex']);
-        echo colorizeJson(json_encode($stx, 128));
+        echo colorizeJson(json_encode($stx, 128 | JSON_HEX_TAG | JSON_HEX_AMP));
         echo '</div></td>';
 
         echo '</tr>';
@@ -318,6 +320,7 @@ $actionUrl = $coin->visible ? '/explorer/' . $coin->symbol : '/explorer/search?i
 
 echo <<<end
 <form action="{$actionUrl}" method="POST" style="padding: 8px; padding-left: 0px;">
+$csrf
 <input type="text" name="height" class="main-text-input" placeholder="block height" style="width: 80px;">
 <input type="text" name="txid" class="main-text-input" placeholder="tx hash" style="width: 450px; margin: 4px;">
 <input type="submit" value="Search" class="main-submit-button">

@@ -1,4 +1,5 @@
 <?php
+$csrf = $this->csrfField(); // session token of the POST forms (CSRF)
 
 if (!$coin)
     $this->goback();
@@ -121,6 +122,7 @@ div.terminal { color: silver; background: black; min-height: 180px; margin-left:
 
 <div class="form">
 <form action="/site/console?id={$coin->id}" method="post" style="padding: 0px;">
+$csrf
 <input class="main-text-input" value="{$last_query}" type="text" name="query" placeholder="Query" style="width: 50%; margin-right: 4px;">
 <input class="main-submit-button" type="submit" value="Execute" style="width: 80px;">
 </form>

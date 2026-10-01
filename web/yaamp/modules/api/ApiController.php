@@ -18,7 +18,7 @@ class ApiController extends CommonController
 
     public function actionStatus()
     {
-        $client_ip   = arraySafeVal($_SERVER, 'REMOTE_ADDR');
+        $client_ip   = getClientIP();
         $whitelisted = isAdminIP($client_ip);
         if (!$whitelisted && is_file(YAAMP_LOGS . '/overloaded')) {
             header('HTTP/1.0 503 Disabled, server overloaded');
@@ -116,7 +116,7 @@ class ApiController extends CommonController
 
     public function actionCurrencies()
     {
-        $client_ip   = arraySafeVal($_SERVER, 'REMOTE_ADDR');
+        $client_ip   = getClientIP();
         $whitelisted = isAdminIP($client_ip);
         if (!$whitelisted && is_file(YAAMP_LOGS . '/overloaded')) {
             header('HTTP/1.0 503 Disabled, server overloaded');
@@ -241,7 +241,7 @@ class ApiController extends CommonController
             return;
 
         echo "{";
-        echo "\"currency\": \"{$coin->symbol}\", ";
+        echo "\"currency\": " . json_encode($coin->symbol) . ", ";
         echo "\"unsold\": $total_unsold, ";
         echo "\"balance\": $balance, ";
         echo "\"unpaid\": $total_unpaid, ";
@@ -301,7 +301,7 @@ class ApiController extends CommonController
             echo "\"version\": " . json_encode($worker->version) . ", ";
             echo "\"password\": " . json_encode($worker->password) . ", ";
             echo "\"ID\": " . json_encode($worker->worker) . ", ";
-            echo "\"algo\": \"{$worker->algo}\", ";
+            echo "\"algo\": " . json_encode($worker->algo) . ", ";
             echo "\"difficulty\": " . floatval($worker->difficulty) . ", ";
             echo "\"subscribe\": " . intval($worker->subscribe) . ", ";
             echo "\"accepted\": " . round($user_rate1, 3) . ", ";
@@ -323,7 +323,7 @@ class ApiController extends CommonController
                     $json_payouts .= "{";
                     $json_payouts .= "\"time\": " . (0 + $payout->time) . ",";
                     $json_payouts .= "\"amount\": \"{$payout->amount}\",";
-                    $json_payouts .= "\"tx\": \"{$payout->tx}\"";
+                    $json_payouts .= "\"tx\": " . json_encode($payout->tx);
                     $json_payouts .= "}";
                 }
                 $json_payouts .= "]";
@@ -370,19 +370,19 @@ class ApiController extends CommonController
             $hashrate_bad = yaamp_job_rate_bad($job->id);
 
             echo '{';
-            echo "\"jobid\": \"$job->id\", ";
-            echo "\"algo\": \"$job->algo\", ";
-            echo "\"price\": \"$job->price\", ";
-            echo "\"hashrate\": \"$job->speed\", ";
-            echo "\"server\": \"$job->host\", ";
-            echo "\"port\": \"$job->port\", ";
-            echo "\"username\": \"$job->username\", ";
-            echo "\"password\": \"$job->password\", ";
-            echo "\"started\": \"$job->ready\", ";
-            echo "\"active\": \"$job->active\", ";
+            echo "\"jobid\": " . json_encode((string) $job->id) . ", ";
+            echo "\"algo\": " . json_encode((string) $job->algo) . ", ";
+            echo "\"price\": " . json_encode((string) $job->price) . ", ";
+            echo "\"hashrate\": " . json_encode((string) $job->speed) . ", ";
+            echo "\"server\": " . json_encode((string) $job->host) . ", ";
+            echo "\"port\": " . json_encode((string) $job->port) . ", ";
+            echo "\"username\": " . json_encode((string) $job->username) . ", ";
+            echo "\"password\": " . json_encode((string) $job->password) . ", ";
+            echo "\"started\": " . json_encode((string) $job->ready) . ", ";
+            echo "\"active\": " . json_encode((string) $job->active) . ", ";
             echo "\"accepted\": \"$hashrate\", ";
             echo "\"rejected\": \"$hashrate_bad\", ";
-            echo "\"diff\": \"$job->difficulty\"";
+            echo "\"diff\": " . json_encode((string) $job->difficulty);
 
             echo '}';
         }

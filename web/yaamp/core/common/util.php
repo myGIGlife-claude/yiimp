@@ -247,8 +247,6 @@ function file_get_contents_curl($url, $user = null)
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 20);
     curl_setopt($ch, CURLOPT_TIMEOUT, 20);
     curl_setopt($ch, CURLOPT_ENCODING, "deflate,gzip");
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_WRITEFUNCTION, $callback);
 
     curl_exec($ch);

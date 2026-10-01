@@ -48,10 +48,8 @@ if($user)
 	</script>
 END;
 
-	if(empty($user->hostaddr) && !$this->admin) {
-		$user->hostaddr = $_SERVER['REMOTE_ADDR'];
-		$user->save();
-	}
+	// the stratum records the miner ip (hostaddr) at login; a page visitor
+	// is not the miner, his ip is not written here
 }
 
 $username = $user? $user->username: '';
@@ -128,8 +126,9 @@ foreach($recents as $addr)
 		echo "<tr class='ssrow'><td width=24>";
 
 	if($coin)
-		echo '<img width="16px" src="'.$coin->image.'">';
+		echo '<img width="16px" src="'.CHtml::encode($coin->image).'">';
 
+	$addr = CHtml::encode($addr);
 	echo '</td><td><a class="address" href="/?address='.$addr.'" style="font-family: monospace; font-size: 1.1em;">'.
 		$addr.'</a></td>';
 

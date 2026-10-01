@@ -43,7 +43,7 @@ foreach ($versions as $item)
     $invalid = Itoa2($invalid) . 'h/s';
 
     echo "<tr class='ssrow'>";
-    echo "<td><b>$version</b></td>";
+    echo "<td><b>" . CHtml::encode($version) . "</b></td>";
     echo "<td>$count</td>";
     echo "<td>$hashrate</td>";
     echo "<td>$invalid</td>";

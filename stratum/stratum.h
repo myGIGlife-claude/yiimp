@@ -95,6 +95,7 @@ extern int g_client_threads;
 extern int g_stratum_max_ttf;
 extern bool g_stratum_reconnect;
 extern bool g_stratum_renting;
+extern bool g_allow_private_remote;
 extern bool g_stratum_segwit;
 extern char g_stratum_gbt_powalgo[64];
 extern uint32_t g_stratum_version_mask;

@@ -14,7 +14,10 @@ class CUFHtml extends CHtml
        $htmlOptions['class'] = $htmlOptions['class'].' uniForm';
      else
        $htmlOptions['class'] = 'uniForm';
-     return parent::beginForm($action, $method, $htmlOptions);
+     $form = parent::beginForm($action, $method, $htmlOptions);
+     // the admin forms post to actions which require the session token (CSRF)
+     if (strtolower($method) == 'post') $form .= controller()->csrfField();
+     return $form;
    }
 
   public static function errorSummary($model,$header=null,$footer=null,$opt=array())

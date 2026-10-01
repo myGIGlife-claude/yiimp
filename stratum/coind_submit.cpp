@@ -5,7 +5,7 @@ bool coind_submitwork(YAAMP_COIND *coind, const char *block)
 {
 	int paramlen = strlen(block);
 
-	char *params = (char *)malloc(paramlen+1024);
+	char *params = (char *)malloc(paramlen+2048);
 	if(!params) {
 		debuglog("%s: OOM!\n", __func__);
 		return false;
@@ -45,7 +45,7 @@ bool coind_submitblock(YAAMP_COIND *coind, const char *block)
 {
 	int paramlen = strlen(block);
 
-	char *params = (char *)malloc(paramlen+1024);
+	char *params = (char *)malloc(paramlen+2048);
 	if(!params) return false;
 
 	sprintf(params, "[\"%s\"]", block);
@@ -78,7 +78,7 @@ bool coind_submitblocktemplate(YAAMP_COIND *coind, const char *block)
 {
 	int paramlen = strlen(block);
 
-	char *params = (char *)malloc(paramlen+1024);
+	char *params = (char *)malloc(paramlen+2048);
 	if(!params) return false;
 
 	sprintf(params, "[{\"mode\": \"submit\", \"data\": \"%s\"}]", block);
@@ -125,7 +125,7 @@ bool coind_submitgetauxblock(YAAMP_COIND *coind, const char *hash, const char *b
 {
 	int paramlen = strlen(block);
 
-	char *params = (char *)malloc(paramlen+1024);
+	char *params = (char *)malloc(paramlen+2048);
 	if(!params) return false;
 
 	sprintf(params, "[\"%s\",\"%s\"]", hash, block);

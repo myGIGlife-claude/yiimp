@@ -71,38 +71,43 @@ static void clean_html(char* string)
 	if (strstr(string, "script")) strcpy(string, "");
 }
 
-void db_query(YAAMP_DB *db, const char *format, ...)
+// false when the query failed: the callers must not read its result
+// (mysql_store_result() is NULL, mysql_insert_id() is meaningless)
+bool db_query(YAAMP_DB *db, const char *format, ...)
 {
 	va_list arglist;
-	if(!db) return;
+	if(!db) return false;
 
 	va_start(arglist, format);
 	int len = vsnprintf(NULL, 0, format, arglist);
 	va_end(arglist);
-	if(len < 0) return;
+	if(len < 0) return false;
 
 	char *buffer = (char *)malloc((size_t)len + 1);
-	if(!buffer) return;
+	if(!buffer) return false;
 
 	va_start(arglist, format);
 	vsnprintf(buffer, (size_t)len + 1, format, arglist);
 	va_end(arglist);
 
+	bool ok = false;
 	while(!g_exiting)
 	{
 		int res = mysql_query(&db->mysql, buffer);
-		if(!res) break;
+		if(!res) { ok = true; break; }
 		res = mysql_errno(&db->mysql);
 
-		stratumlog("SQL ERROR: %d, %s\n", res, mysql_error(&db->mysql));
-		if(res == ER_DUP_ENTRY) break; // rarely seen on new user creation
-		if(res != CR_SERVER_GONE_ERROR && res != CR_SERVER_LOST) exit(1);
+		stratumlog("SQL ERROR: %d, %s (%.160s)\n", res, mysql_error(&db->mysql), buffer);
+		// a lost connection is retried; any other error (bad data, deadlock,
+		// schema) only fails this query, it must not stop the stratum
+		if(res != CR_SERVER_GONE_ERROR && res != CR_SERVER_LOST) break;
 
 		usleep(100*YAAMP_MS);
 		db_reconnect(db);
 	}
 
 	free(buffer);
+	return ok;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -139,7 +144,9 @@ void db_update_algos(YAAMP_DB *db)
 		if (g_list_coind.first) {
 			CLI li = g_list_coind.first;
 			YAAMP_COIND *coind = (YAAMP_COIND *)li->data;
-			snprintf(symbol, sizeof(symbol), "'%.13s'", coind->symbol);
+			// a quote in the symbol would break the query
+			if(strspn(coind->symbol, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-") == strlen(coind->symbol))
+				snprintf(symbol, sizeof(symbol), "'%.13s'", coind->symbol);
 		}
 	}
 
@@ -205,7 +212,7 @@ void db_update_coinds(YAAMP_DB *db)
 		"FROM coins WHERE enable AND auto_ready AND algo='%s' ORDER BY index_avg", g_stratum_algo);
 
 	MYSQL_RES *result = mysql_store_result(&db->mysql);
-	if(!result) yaamp_error("Cant query database");
+	if(!result) return; // query failed (logged), retried on the next loop
 
 	MYSQL_ROW row;
 	g_list_coind.Enter();
@@ -266,7 +273,7 @@ void db_update_coinds(YAAMP_DB *db)
 					strcpy(cert, "yiimp");
 				}
 				coind->rpc.ssl = 1;
-				sprintf(coind->rpc.cert, "/usr/share/ca-certificates/%s.crt", cert);
+				snprintf(coind->rpc.cert, sizeof(coind->rpc.cert), "/usr/share/ca-certificates/%s.crt", cert);
 			}
 			strcpy(coind->rpc.cert, "");
 			strcpy(coind->rpc.host, buffer);
@@ -277,9 +284,11 @@ void db_update_coinds(YAAMP_DB *db)
 		if(row[4] && row[5])
 		{
 			char buffer[1024];
-			sprintf(buffer, "%s:%s", row[4], row[5]);
+			snprintf(buffer, sizeof(buffer), "%s:%s", row[4], row[5]);
 
-			base64_encode(coind->rpc.credential, buffer);
+			// base64 grows by 4/3, credential is 1024
+			if(strlen(buffer) <= 760) base64_encode(coind->rpc.credential, buffer);
+			else stratumlog("%s: rpc user:password too long\n", coind->symbol);
 			coind->rpc.coind = coind;
 		}
 
@@ -404,7 +413,7 @@ void db_update_remotes(YAAMP_DB *db)
 	db_query(db, "select id, speed/1000000, host, port, username, password, time, price, renterid from jobs where active and ready and algo='%s' order by time", g_stratum_algo);
 
 	MYSQL_RES *result = mysql_store_result(&db->mysql);
-	if(!result) yaamp_error("Cant query database");
+	if(!result) return; // query failed (logged), retried on the next loop
 
 	MYSQL_ROW row;
 
@@ -453,10 +462,8 @@ void db_update_remotes(YAAMP_DB *db)
 				continue;
 			}
 
-			pthread_t thread;
-
-			pthread_create(&thread, NULL, remote_thread, remote);
-			pthread_detach(thread);
+			// remote_delete() detaches it, db_update_remotes cancels it
+			pthread_create(&remote->thread, NULL, remote_thread, remote);
 
 			g_list_remote.AddTail(remote);
 			usleep(100*YAAMP_MS);
@@ -505,7 +512,9 @@ void db_update_remotes(YAAMP_DB *db)
 			remote->status = YAAMP_REMOTE_TERMINATE;
 			remote->kill = true;
 
-			remote_close(remote);
+			// the remote thread is in recv() on this socket: wake it up, it
+			// closes the socket itself (a close here frees it under its feet)
+			if(remote->sock) shutdown(remote->sock->sock, SHUT_RDWR);
 			continue;
 		}
 
@@ -535,7 +544,7 @@ void db_update_renters(YAAMP_DB *db)
 	db_query(db, "select id, balance, updated from renters");
 
 	MYSQL_RES *result = mysql_store_result(&db->mysql);
-	if(!result) yaamp_error("Cant query database");
+	if(!result) return; // query failed (logged), retried on the next loop
 
 	MYSQL_ROW row;
 	g_list_renter.Enter();

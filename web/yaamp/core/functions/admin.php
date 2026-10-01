@@ -85,9 +85,13 @@ function ipCIDRCheck($IP, $CIDR)
     return ($ip_ip_net === $ip_net);
 }
 
-function isAdminIP($ip)
+// is $ip in a comma separated list of ips and cidr ranges?
+function ipInList($ip, $list)
 {
-    foreach (explode(',', YAAMP_ADMIN_IP) as $range) {
+    if (!is_string($ip) || $ip === '' || !is_string($list)) return false;
+    foreach (explode(',', $list) as $range) {
+        $range = trim($range);
+        if ($range === '') continue;
         if (strpos($range, '/')) {
             if (ipCIDRCheck($ip, $range) === true)
                 return true;
@@ -96,6 +100,30 @@ function isAdminIP($ip)
         }
     }
     return false;
+}
+
+function isAdminIP($ip)
+{
+    return ipInList($ip, YAAMP_ADMIN_IP);
+}
+
+// The ip of the client: REMOTE_ADDR, or, when REMOTE_ADDR is one of the
+// YAAMP_TRUSTED_PROXIES, the rightmost X-Forwarded-For address that is not
+// a trusted proxy. '' when a trusted proxy sent an unusable header.
+function getClientIP()
+{
+    $ip = arraySafeVal($_SERVER, 'REMOTE_ADDR', '');
+    if (!ipInList($ip, YAAMP_TRUSTED_PROXIES)) return $ip;
+
+    $xff = arraySafeVal($_SERVER, 'HTTP_X_FORWARDED_FOR', '');
+    if (!is_string($xff) || $xff === '') return $ip;
+
+    $hops = array_map('trim', explode(',', $xff));
+    for ($i = count($hops) - 1; $i >= 0; $i--) {
+        if (filter_var($hops[$i], FILTER_VALIDATE_IP) === false) return '';
+        if (!ipInList($hops[$i], YAAMP_TRUSTED_PROXIES)) return $hops[$i];
+    }
+    return '';
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////

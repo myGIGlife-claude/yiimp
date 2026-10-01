@@ -75,7 +75,7 @@ if (!empty($botnets)) foreach ($botnets as $botnet)
     echo '<td>' . $botnet['pid'] . '</td>';
     echo '<td>' . $botnet['ips'] . '</td>';
     echo '<td>' . $botnet['workers'] . '</td>';
-    echo '<td>' . $botnet['version'] . '</td>';
+    echo '<td>' . CHtml::encode($botnet['version']) . '</td>';
 
     echo '<td class="actions" align="right">';
 

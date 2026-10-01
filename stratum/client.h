@@ -97,6 +97,7 @@ public:
 
 	int64_t shares;
 	int stats;
+	time_t stats_last;
 
 	int donation;
 	int broadcast_timeouts;

@@ -84,7 +84,7 @@ foreach ($list as $coin)
     $nethash_sfx = $coin->network_hash ? strtoupper(Itoa2($coin->network_hash)) . 'H/s' : '';
 
     echo '<tr class="ssrow">';
-    echo '<td><img src="' . $coin->image . '" width="18"></td>';
+    echo '<td><img src="' . CHtml::encode($coin->image) . '" width="18"></td>';
 
     echo '<td><b>' . $coin->createExplorerLink($coin->name) . '</a></b></td>';
     echo '<td><b>' . $coin->symbol . '</b></td>';

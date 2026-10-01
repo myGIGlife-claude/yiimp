@@ -3,7 +3,7 @@ $percent = 16;
 $step = 15 * 60;
 $t = time() - 24 * 60 * 60;
 
-$jobid = getparam('jobid');
+$jobid = getiparam('jobid');
 
 $stats = getdbolist('db_hashrenter', "time>$t and jobid=:jobid order by time", array(
     ':jobid' => $jobid
@@ -61,7 +61,7 @@ for ($i = $t + $step, $j = 0;$i < time();$i += $step)
 
     if ($i + $step >= time())
     {
-        $m = round(yaamp_user_rate_bad($jobid) / 1000000, 3);
+        $m = round(yaamp_job_rate_bad($jobid) / 1000000, 3);
         //	debuglog("last $m");
 
     }

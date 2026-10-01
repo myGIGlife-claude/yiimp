@@ -42,7 +42,7 @@ class poloniex
 				$ch = curl_init();
 				curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 				curl_setopt($ch, CURLOPT_USERAGENT,
-					'Mozilla/4.0 (compatible; Poloniex PHP bot; '.php_uname('a').'; PHP/'.phpversion().')'
+					'Mozilla/4.0 (compatible; Poloniex PHP bot)'
 				);
 			}
 			curl_setopt($ch, CURLOPT_URL, $this->trading_url);
@@ -50,7 +50,6 @@ class poloniex
 			curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 			curl_setopt($ch, CURLOPT_TIMEOUT, 40);
-			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
 
 			// run the query
 			$res = curl_exec($ch);

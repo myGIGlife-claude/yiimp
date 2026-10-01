@@ -14,7 +14,7 @@ $show_details = getparam('showdetails');
 $user = getuserparam(getparam('address'));
 if (!$user) return;
 
-WriteBoxHeader("Wallet: $user->username");
+WriteBoxHeader("Wallet: " . CHtml::encode($user->username));
 
 $refcoin = getdbo('db_coins', $user->coinid);
 if (!$refcoin)
@@ -82,7 +82,7 @@ if ($show_details)
             $total = altcoinvaluetoa($total);
 
             echo "<tr class='ssrow'>";
-            echo "<td width=18><img width=16 src='$coin->image'></td>";
+            echo "<td width=18><img width=16 src='" . CHtml::encode($coin->image) . "'></td>";
             echo "<td><b><a href='/site/block?id=$coin->id' title='$coin->version'>$name</a></b><span style='font-size: .8em'> ($coin->algo)</span></td>";
 
             echo "<td align=right style='font-size: .8em;'>$unconfirmed</td>";

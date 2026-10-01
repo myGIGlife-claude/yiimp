@@ -35,8 +35,12 @@ static void script_pack_tx(YAAMP_COIND *coind, char *data, json_int_t amount, co
 	char evalue[32];
 	char coinb2_part[256];
 	char coinb2_len[4];
+	if(!script || strlen(script) >= sizeof(coinb2_part) || strlen(data) + strlen(script) + 32 >= 2048) {
+		stratumlog("%s: payee script too long, skipped\n", coind->symbol);
+		return;
+	}
 	encode_tx_value(evalue, amount);
-	sprintf(coinb2_part, "%s", script);
+	snprintf(coinb2_part, sizeof(coinb2_part), "%s", script);
 	sprintf(coinb2_len, "%02x", (unsigned int)(strlen(coinb2_part) >> 1) & 0xFF);
 	strcat(data, evalue);
 	strcat(data, coinb2_len);
@@ -311,14 +315,20 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 			free(params);
 			if (json) {
 				json_value *json_result = json_get_object(json, "result");
-				if (json_result) {
-					sprintf(templ->coinb1, "%s", json_get_string(json_result, "coinbaseforhashpart1"));
+				const char *h1 = json_result ? json_get_string(json_result, "coinbaseforhashpart1") : NULL;
+				const char *h2 = json_result ? json_get_string(json_result, "coinbaseforhashpart2") : NULL;
+				const char *s1 = json_result ? json_get_string(json_result, "coinbasepart1") : NULL;
+				const char *s2 = json_result ? json_get_string(json_result, "coinbasepart2") : NULL;
+				if (h1 && h2 && s1 && s2 && strlen(h1) > 16 && strlen(s1) > 16
+					&& strlen(h1) < sizeof(templ->coinb1) && strlen(h2) < sizeof(templ->coinb2)
+					&& strlen(s1) < sizeof(templ->coinforsubmitb1) && strlen(s2) < sizeof(templ->coinforsubmitb2)) {
+					strcpy(templ->coinb1, h1);
 					templ->coinb1[strlen(templ->coinb1) - 16] = '\0';
-					sprintf(templ->coinb2, "%s", json_get_string(json_result, "coinbaseforhashpart2"));
+					strcpy(templ->coinb2, h2);
 
-					sprintf(templ->coinforsubmitb1, "%s", json_get_string(json_result, "coinbasepart1"));
+					strcpy(templ->coinforsubmitb1, s1);
 					templ->coinforsubmitb1[strlen(templ->coinforsubmitb1) - 16] = '\0';
-					sprintf(templ->coinforsubmitb2, "%s", json_get_string(json_result, "coinbasepart2"));
+					strcpy(templ->coinforsubmitb2, s2);
 					templ->isbitcash = true;
 				}
 			}
@@ -348,7 +358,7 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 		strcpy(eversion1, "03000500"); // DIP2 special tx: version 3, type 5 (CbTx)
 
 	char script1[4*1024];
-	sprintf(script1, "%s%s%s08", eheight, templ->flags, etime);
+	snprintf(script1, sizeof(script1), "%s%s%s08", eheight, templ->flags, etime);
 
 	char script2[32] = "746865706f6f6c2e6c6966655c30"; // "thepool.life\0" in hex ascii
 
@@ -356,11 +366,11 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 		coinbase_aux(templ, script2);
 
 	int script_len = strlen(script1)/2 + strlen(script2)/2 + 8;
-	sprintf(templ->coinb1, "%s%s01"
+	snprintf(templ->coinb1, sizeof(templ->coinb1), "%s%s01"
 		"0000000000000000000000000000000000000000000000000000000000000000"
 		"ffffffff%02x%s", eversion1, entime, script_len, script1);
 
-	sprintf(templ->coinb2, "%s00000000", script2);
+	snprintf(templ->coinb2, sizeof(templ->coinb2), "%s00000000", script2);
 
 	// segwit commitment, if needed
 	if (templ->has_segwit_txs)
@@ -398,6 +408,7 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 				const char *payee = json_get_string(superblock->u.array.values[i], "payee");
 				json_int_t amount = json_get_int(superblock->u.array.values[i], "amount");
 				if (payee && amount) {
+					if (strlen(script_dests) + 128 >= sizeof(script_dests)) { stratumlog("%s: too many superblock payees\n", coind->symbol); break; }
 					npayees++;
 					available -= amount;
 					base58_decode(payee, script_payee);
@@ -726,8 +737,8 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 			strcat(templ->coinb2, echarity_amount);
 			char coinb2_part[1024] = { 0 };
 			char coinb2_len[3] = { 0 };
-			sprintf(coinb2_part, "a9%02x%s87", (unsigned int)(strlen(script_payee) >> 1) & 0xFF, script_payee);
-			sprintf(coinb2_len, "%02x", (unsigned int)(strlen(coinb2_part) >> 1) & 0xFF);
+			snprintf(coinb2_part, sizeof(coinb2_part), "a9%02x%s87", (unsigned int)(strlen(script_payee) >> 1) & 0xFF, script_payee);
+			snprintf(coinb2_len, sizeof(coinb2_len), "%02x", (unsigned int)(strlen(coinb2_part) >> 1) & 0xFF);
 			strcat(templ->coinb2, coinb2_len);
 			strcat(templ->coinb2, coinb2_part);
 			debuglog("pack tx %s\n", coinb2_part);
@@ -850,7 +861,8 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 		job_pack_tx(coind, templ->coinb2, available, NULL);
 		strcat(templ->coinb2, script_dests);
 		strcat(templ->coinb2, "00000000"); // locktime
-		if(coinbase_payload && strlen(coinbase_payload) > 0) {
+		if(coinbase_payload && strlen(coinbase_payload) > 0
+			&& strlen(templ->coinb2) + strlen(coinbase_payload) + 32 < sizeof(templ->coinb2)) {
 			char coinbase_payload_size[18];
 			ser_compactsize((unsigned int)(strlen(coinbase_payload) >> 1), coinbase_payload_size);
 			strcat(templ->coinb2, coinbase_payload_size);
@@ -1545,6 +1557,7 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 				const char *script = json_get_string(superblock->u.array.values[i], "script");
 				json_int_t amount = json_get_int(superblock->u.array.values[i], "amount");
 				if (!amount) continue;
+				if (strlen(script_dests) + 384 >= sizeof(script_dests)) { stratumlog("%s: too many superblock payees\n", coind->symbol); break; }
 				if (script) {
 					npayees++;
 					available -= amount;
@@ -1608,7 +1621,8 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 		strcat(templ->coinb2, script_dests);
 		job_pack_tx(coind, templ->coinb2, available, NULL);
 		strcat(templ->coinb2, "00000000"); // locktime
-		if(coinbase_payload && strlen(coinbase_payload) > 0) {
+		if(coinbase_payload && strlen(coinbase_payload) > 0
+			&& strlen(templ->coinb2) + strlen(coinbase_payload) + 32 < sizeof(templ->coinb2)) {
 			char coinbase_payload_size[18];
 			ser_compactsize((unsigned int)(strlen(coinbase_payload) >> 1), coinbase_payload_size);
 			strcat(templ->coinb2, coinbase_payload_size);
@@ -1636,6 +1650,7 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 				const char *payee = json_get_string(superblock->u.array.values[i], "payee");
 				json_int_t amount = json_get_int(superblock->u.array.values[i], "amount");
 				if (payee && amount) {
+					if (strlen(script_dests) + 128 >= sizeof(script_dests)) { stratumlog("%s: too many superblock payees\n", coind->symbol); break; }
 					npayees++;
 					available -= amount;
 					base58_decode(payee, script_payee);
@@ -1679,6 +1694,7 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 				const char *payee = json_get_string(superblock->u.array.values[i], "payee");
 				json_int_t amount = json_get_int(superblock->u.array.values[i], "amount");
 				if (payee && amount) {
+					if (strlen(script_dests) + 128 >= sizeof(script_dests)) { stratumlog("%s: too many superblock payees\n", coind->symbol); break; }
 					npayees++;
 					available -= amount;
 					base58_decode(payee, script_payee);

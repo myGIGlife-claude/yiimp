@@ -78,7 +78,7 @@ foreach ($list as $market) {
     echo '<tr class="' . $rowclass . '">';
 
     echo '<td><b><a href="' . $marketurl . '" target=_blank>';
-    echo $market->name;
+    echo CHtml::encode($market->name);
     echo '</a></b></td>';
 
     $updated = "last updated: " . strip_tags(datetoa2($market->pricetime));
@@ -92,7 +92,7 @@ foreach ($list as $market) {
         echo CHtml::link(YAAMP_ALLOW_EXCHANGE ? "sell" : "send", "javascript:;", array(
             'onclick' => "return showSellAmountDialog($name, $addr, {$market->id});"
         ));
-        echo ' ' . $market->deposit_address;
+        echo ' ' . CHtml::encode($market->deposit_address);
     }
     echo ' <a href="/market/update?id=' . $market->id . '">edit</a>';
     echo '</td>';
@@ -112,7 +112,7 @@ foreach ($list as $market) {
     echo '<td>' . (empty($traded) ? "" : "$traded ago") . '</td>';
     echo '<td>' . $late . '</td>';
 
-    echo '<td align="center">' . $market->message . '</td>';
+    echo '<td align="center">' . CHtml::encode($market->message) . '</td>';
 
     echo '<td align="right">';
     if ($market->disabled)
@@ -131,7 +131,7 @@ $list = getdbolist('db_bookmarks', "idcoin={$coin->id} ORDER BY lastused DESC");
 foreach ($list as $bookmark) {
     echo '<tr class="ssrow bookmark">';
 
-    echo '<td><b>' . $bookmark->label . '<b></td>';
+    echo '<td><b>' . CHtml::encode($bookmark->label) . '<b></td>';
     echo '<td></td>';
     echo '<td></td>';
 

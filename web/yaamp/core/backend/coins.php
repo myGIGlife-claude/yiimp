@@ -305,7 +305,7 @@ function BackendCoinsUpdate()
         if ($coin->difficulty) {
             $coin->index_avg = $coin->reward * $coin->price * 10000 / $coin->difficulty;
             if (!$coin->auxpow && $coin->rpcencoding == 'POW') {
-                $indexaux = dboscalar("SELECT SUM(index_avg) FROM coins WHERE enable AND visible AND auto_ready AND auxpow AND algo='{$coin->algo}'");
+                $indexaux = dboscalar("SELECT SUM(index_avg) FROM coins WHERE enable AND visible AND auto_ready AND auxpow AND algo=:algo", array(':algo' => $coin->algo));
                 $coin->index_avg += $indexaux;
             }
         }

@@ -59,7 +59,6 @@ function yobit_api_query2($method, $req = array())
 	curl_setopt($ch, CURLOPT_URL, 'https://yobit.net/tapi/');
 	curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
 	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 	curl_setopt($ch, CURLOPT_ENCODING , 'gzip');
 
 	$res = curl_exec($ch);

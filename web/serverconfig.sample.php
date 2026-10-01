@@ -35,6 +35,14 @@ define('YAAMP_STRATUM_URL', YAAMP_SITE_URL); // change if your stratum server is
 define('YAAMP_SITE_NAME', 'YiiMP');
 define('YAAMP_ADMIN_EMAIL', 'yiimp@spam.la');
 define('YAAMP_ADMIN_IP', ''); // samples: "80.236.118.26,90.234.221.11" or "10.0.0.1/8"
+// Optional admin password, required at /site/AdminRights in addition to the ip check.
+// Set it to the output of: php -r 'echo password_hash("your password", PASSWORD_DEFAULT), "\n";'
+// Empty: the ip check alone grants the admin rights (the historical behaviour).
+define('YAAMP_ADMIN_PASSWORD_HASH', '');
+// Reverse proxies (ips or cidr ranges, comma separated) whose X-Forwarded-For header
+// gives the client ip, e.g. "127.0.0.1" with a local nginx/haproxy/cloudflared in front.
+// Empty (default): X-Forwarded-For is ignored and REMOTE_ADDR is the client ip.
+define('YAAMP_TRUSTED_PROXIES', '');
 define('YAAMP_ADMIN_WEBCONSOLE', true);
 define('YAAMP_CREATE_NEW_COINS', true);
 define('YAAMP_NOTIFY_NEW_COINS', false);

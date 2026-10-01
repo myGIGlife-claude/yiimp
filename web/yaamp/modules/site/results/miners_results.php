@@ -118,7 +118,7 @@ foreach ($versions as $item) {
     $version  = substr($version, 0, 30);
 
     echo '<tr class="ssrow">';
-    echo '<td><b>' . $version . '</b></td>';
+    echo '<td><b>' . CHtml::encode($version) . '</b></td>';
     echo '<td align="right">' . $count . '</td>';
     echo '<td align="right">' . ($donators ? $donators : '-') . '</td>';
     echo '<td align="right">' . ($extranonce ? $extranonce : '-') . '</td>';

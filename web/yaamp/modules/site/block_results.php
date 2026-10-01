@@ -7,6 +7,8 @@ $db_blocks = getdbolist('db_blocks', "coin_id=:id order by time desc limit 250",
     ':id' => $id
 ));
 $coin = getdbo('db_coins', $id);
+// hidden coins are only listed for the admin (as the explorer does)
+if ($coin && !$coin->visible && !$this->admin) return;
 
 showTableSorter('maintable', "{
 	tableClass: 'dataGrid',
@@ -65,7 +67,7 @@ foreach ($db_blocks as $db_block)
     if ($db_block->category == 'immature') echo "<tr style='background-color: #e0d3e8;'>";
     else echo "<tr class='ssrow'>";
 
-    echo '<td><img width="16" src="' . $coin->image . '"></td>';
+    echo '<td><img width="16" src="' . CHtml::encode($coin->image) . '"></td>';
 
     $flags = $db_block->segwit ? '&nbsp;<img src="/images/ui/segwit.png" height="8px" valign="center" title="segwit"/>' : '';
 

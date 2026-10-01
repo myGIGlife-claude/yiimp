@@ -63,6 +63,18 @@ void remote_close(YAAMP_REMOTE *remote)
 	remote->sock = NULL;
 }
 
+// loopback, private, link-local, cgnat, multicast and reserved ipv4 ranges
+static bool remote_private_addr(const struct in_addr *addr)
+{
+	uint32_t ip = ntohl(addr->s_addr);
+	return (ip >> 24) == 0 || (ip >> 24) == 10 || (ip >> 24) == 127
+		|| (ip >> 22) == 0x191   // 100.64.0.0/10
+		|| (ip >> 16) == 0xA9FE  // 169.254.0.0/16
+		|| (ip >> 20) == 0xAC1   // 172.16.0.0/12
+		|| (ip >> 16) == 0xC0A8  // 192.168.0.0/16
+		|| (ip >> 24) >= 224;    // 224.0.0.0/4 and 240.0.0.0/4
+}
+
 bool remote_connect(YAAMP_REMOTE *remote)
 {
 //	if(!strcmp(remote->host, "yaamp.com")) return false;
@@ -76,18 +88,33 @@ bool remote_connect(YAAMP_REMOTE *remote)
 		debuglog("connecting to %s:%d JOB%d\n", remote->host, remote->port, remote->id);
 	}
 
-	int sock = socket(AF_INET, SOCK_STREAM, 0);
-	if(sock <= 0) return false;
-
-	struct hostent *ent = gethostbyname(remote->host);
-	if(!ent || ent->h_addrtype != AF_INET) { close(sock); return false; }
+	// the host and port come from the renter (jobs table): no connections to
+	// this host, the lan or the link (ssrf) unless allow_private_remote = 1
+	struct addrinfo hints, *ai = NULL;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	if(getaddrinfo(remote->host, NULL, &hints, &ai) != 0 || !ai || !ai->ai_addr) {
+		if(ai) freeaddrinfo(ai);
+		return false;
+	}
 
 	struct sockaddr_in serv;
+	memcpy(&serv, ai->ai_addr, sizeof(serv));
+	freeaddrinfo(ai);
 
 	serv.sin_family = AF_INET;
 	serv.sin_port = htons(remote->port);
 
-	bcopy((char *)ent->h_addr, (char *)&serv.sin_addr.s_addr, ent->h_length);
+	if(!g_allow_private_remote && remote_private_addr(&serv.sin_addr)) {
+		if (g_debuglog_remote) {
+			debuglog("refused private address %s for %s:%d JOB%d\n", inet_ntoa(serv.sin_addr), remote->host, remote->port, remote->id);
+		}
+		return false;
+	}
+
+	int sock = socket(AF_INET, SOCK_STREAM, 0);
+	if(sock <= 0) return false;
 
 	int res = connect(sock, (struct sockaddr*)&serv, sizeof(serv));
 	if(res < 0)

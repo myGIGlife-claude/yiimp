@@ -169,8 +169,8 @@ class CoindbCommand extends CConsoleCommand
                     if ($cc->Name != $coin->name)
                     {
                         echo "{$coin->symbol}: {$cc->Name}\n";
-                        $coin->name = $cc->Name;
-                        if ($cc->Algorithm != 'scrypt') $coin->algo = strtolower($cc->Algorithm);
+                        $coin->name = preg_replace('/[^\w .()-]/u', '', (string) $cc->Name) ?: 'unknown';
+                        if ($cc->Algorithm != 'scrypt') $coin->algo = preg_replace('/[^a-z0-9_-]/', '', strtolower((string) $cc->Algorithm));
                         $nbUpdated += $coin->save();
                     }
                 }
@@ -249,13 +249,13 @@ class CoindbCommand extends CConsoleCommand
                 if ($coin->name == 'unknown')
                 {
                     echo "{$coin->symbol}: {$cc['name']}\n";
-                    $coin->name = $cc['name'];
+                    $coin->name = preg_replace('/[^\w .()-]/u', '', (string) $cc['name']) ?: 'unknown';
                     $nbUpdated += $coin->save();
                 }
                 if (empty($cc['algo'])) continue;
                 if (empty($coin->algo) || $coin->algo != $cc['algo'])
                 {
-                    $coin->algo = strtolower($cc['algo']);
+                    $coin->algo = preg_replace('/[^a-z0-9_-]/', '', strtolower((string) $cc['algo']));
                     echo "{$coin->symbol}: algo set to {$cc['algo']}\n";
                     $nbAlgos += $coin->save();
                 }
@@ -344,7 +344,7 @@ class CoindbCommand extends CConsoleCommand
                     break;
                 }
             }
-            if (empty($url)) continue;
+            if (empty($url) || !preg_match('#^https?://#i', $url)) continue; // no file:// or php://
             try
             {
                 $data = @file_get_contents($url);

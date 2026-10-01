@@ -15,8 +15,6 @@ function coinexchange_api_query($method, $params='')
 	$ch = curl_init($uri);
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
-	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-	curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
 	curl_setopt($ch, CURLOPT_SSLVERSION, 1 /*CURL_SSLVERSION_TLSv1*/);
 	curl_setopt($ch, CURLOPT_SSL_SESSIONID_CACHE, 0);
 	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);

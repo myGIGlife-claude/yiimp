@@ -25,7 +25,35 @@ class RentingController extends CommonController
             $this->redirect('/renting');
             return false;
         }
+
+        // the renter forms carry the session token (the headers above are not always sent)
+        $forms = array('index', 'login', 'create', 'withdraw', 'ordersave');
+        if (app()->request->isPostRequest && in_array(strtolower($action->id), $forms) && !$this->hasValidCsrfToken())
+        {
+            debuglog("renting: POST without token refused {$action->id} from ".arraySafeVal($_SERVER, 'REMOTE_ADDR'));
+            $this->redirect('/renting');
+            return false;
+        }
+        // renting disabled: the renters may still see their account and withdraw,
+        // but no new accounts (wallet addresses) or orders
+        $disabled = array('create', 'ordersave', 'orderdialog', 'jobs_start', 'jobs_startall', 'resetspent');
+        if (!YAAMP_RENTAL && !$this->admin && in_array(strtolower($action->id), $disabled))
+        {
+            $this->redirect('/renting');
+            return false;
+        }
         return true;
+    }
+
+    // the stored password is bcrypt, or the legacy unsalted md5 of old accounts
+    private function renterPasswordOk($renter, $password)
+    {
+        if (!LimitRequest('renting-password', 2)) return false;
+        $stored = $renter ? (string) $renter->password : '';
+        if ($stored === '' || !is_string($password)) return false;
+        if (strlen($stored) == 32 && ctype_xdigit($stored))
+            return hash_equals(strtolower($stored), md5($password));
+        return password_verify($password, $stored);
     }
 
     private function verifyparam()
@@ -136,6 +164,15 @@ class RentingController extends CommonController
 
                 return;
             }
+        }
+
+        // a password protected account needs its password to be changed
+        if ($changed && !$this->admin && (string) $renter->password !== ''
+            && !$this->renterPasswordOk(getdbo('db_renters', $renter->id), arraySafeVal($_POST, 'deposit_current', '')))
+        {
+            user()->setFlash('error', "Wrong current password.");
+            $this->redirect("/renting/settings");
+            return;
         }
 
         if ($changed)
@@ -418,8 +455,10 @@ class RentingController extends CommonController
             $speed = $job->speed / 1000000;
         }
 
+        $csrf = $this->csrfField();
         echo <<<end
 <form id='order-edit-form' action='/renting/ordersave' method='post'>
+$csrf
 <input type="hidden" value='$id' name="order_id">
 <input type="hidden" value='$renter->id' name="order_renterid">
 <input type="hidden" value='$renter->address' name="order_address">
@@ -497,6 +536,14 @@ end;
         {
             user()->setFlash('error', "Set a password before a withdraw.");
             $this->redirect("/renting/settings");
+            return;
+        }
+        // the session alone is not enough to move the funds
+        if (!$this->admin && !$this->renterPasswordOk($renter, arraySafeVal($_POST, 'withdraw_password', '')))
+        {
+            debuglog("withdraw refused, wrong password $renter->id $renter->address");
+            user()->setFlash('error', "Wrong password.");
+            $this->redirect("/renting");
             return;
         }
 

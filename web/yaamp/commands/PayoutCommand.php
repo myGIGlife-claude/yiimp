@@ -164,7 +164,7 @@ class PayoutCommand extends CConsoleCommand
 
 			// filter user raw transactions
 			foreach ($rawtxs as $ntx => $tx) {
-				$time = arraySafeVal($tx,'time');
+				$time = (int) arraySafeVal($tx,'time');
 				if ($time < $since) continue;
 				$match = false;
 				if (arraySafeVal($tx,'category') == 'send' && arraySafeVal($tx,'address') == $user_addr) {

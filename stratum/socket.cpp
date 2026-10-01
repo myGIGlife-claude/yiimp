@@ -16,11 +16,22 @@ void socket_real_ip(YAAMP_SOCKET *s)
 	union yaamp_proxy_hdr hdr;
 	memset(&hdr, 0, sizeof(hdr));
 
+	// only a proxy on this host or the lan may tell us the client ip,
+	// else any miner could spoof it (workers.ip, the iptables ban)
+	struct sockaddr_in peer;
+	socklen_t peerlen = sizeof(peer);
+	memset(&peer, 0, peerlen);
+	bool local_peer = false;
+	if (getpeername(s->sock, (struct sockaddr *)&peer, &peerlen) == 0) {
+		uint32_t ip = ntohl(peer.sin_addr.s_addr);
+		local_peer = (ip >> 24) == 127 || (ip >> 24) == 10 || (ip >> 20) == 0xAC1 || (ip >> 16) == 0xC0A8;
+	}
+
 	do {
 		ret = recv(s->sock, &hdr, sizeof(hdr), MSG_PEEK);
 	} while (ret == -1 && errno == EINTR);
 
-	if (ret >= 16 && ret >= (16 + ntohs(hdr.v2.len)) &&
+	if (local_peer && ret >= 16 && ret >= (16 + ntohs(hdr.v2.len)) &&
 		(16 + ntohs(hdr.v2.len)) <= (int) sizeof(hdr) &&
 		memcmp(&hdr.v2, v2sig, 12) == 0 &&
 		((hdr.v2.ver_cmd & 0xF0) == 0x20) &&

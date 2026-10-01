@@ -52,22 +52,28 @@ static void job_mining_notify_buffer(YAAMP_JOB *job, YAAMP_CLIENT *client, char 
 		job->id, templ->prevhash_be, templ->coinb1, templ->coinb2, templ->txmerkles, templ->version, templ->nbits, templ->ntime);
 }
 
+// the newest mineable job (of a coin); locked, the caller unlocks it
 static YAAMP_JOB *job_get_last(int coinid)
 {
+	YAAMP_JOB *found = NULL;
 	g_list_job.Enter();
-	for(CLI li = g_list_job.first; li; li = li->prev)
+	// first->prev is NULL: the old loop only ever looked at the oldest job
+	for(CLI li = g_list_job.last; li; li = li->prev)
 	{
 		YAAMP_JOB *job = (YAAMP_JOB *)li->data;
 		if(!job_can_mine(job)) continue;
 		if(!job->coind) continue;
 		if(coinid > 0 && job->coind->id != coinid) continue;
 
-		g_list_job.Leave();
-		return job;
+		// keep it alive once the list is unlocked (object_prune frees
+		// deleted jobs with no lock)
+		object_lock(job);
+		found = job;
+		break;
 	}
 
 	g_list_job.Leave();
-	return NULL;
+	return found;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -90,6 +96,7 @@ void job_send_last(YAAMP_CLIENT *client)
 	job_mining_notify_buffer(job, client, buffer);
 
 	socket_send_raw(client->sock, buffer, strlen(buffer));
+	object_unlock(job);
 }
 
 void job_send_jobid(YAAMP_CLIENT *client, int jobid)
@@ -157,11 +164,8 @@ void job_broadcast(YAAMP_JOB *job)
 			if (client->broadcast_timeouts >= 3) {
 				shutdown(client->sock->sock, SHUT_RDWR);
 				clientlog(client, "unable to send job, sock err %d (%d times)", err, client->broadcast_timeouts);
-				if(client->workerid && !client->reconnecting) {
-				//	CommonLock(&g_db_mutex);
-					db_clear_worker(g_db, client);
-				//	CommonUnlock(&g_db_mutex);
-				}
+				// the shutdown wakes the client thread, which clears the
+				// worker row under g_db_mutex (shared mysql handle)
 				object_delete(client);
 			}
 		}

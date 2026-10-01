@@ -352,6 +352,13 @@ bool client_submit(YAAMP_CLIENT *client, json_value *json_params)
 		return false;
 	}
 
+	// no share before mining.subscribe (difficulty 0, empty extranonce1)
+	if (!(client->difficulty_actual > 0.) || !client->extranonce1[0]) {
+		clientlog(client, "submit before subscribe");
+		client->submit_bad++;
+		return false;
+	}
+
 	char extranonce2[32] = { 0 };
 	char extra[160] = { 0 };
 	char nonce[80] = { 0 };

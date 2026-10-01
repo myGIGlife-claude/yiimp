@@ -16,12 +16,13 @@ function logtime($text)
 //
 function LimitRequest($name, $limit = 1)
 {
+    $client_ip = getClientIP();
     $t = controller()
         ->memcache
-        ->get("yaamp-timestamp-$name-{$_SERVER['REMOTE_ADDR']}");
+        ->get("yaamp-timestamp-$name-$client_ip");
     $a = controller()
         ->memcache
-        ->get("yaamp-average-$name-{$_SERVER['REMOTE_ADDR']}");
+        ->get("yaamp-average-$name-$client_ip");
 
     if (!$a || !$t) $a = $limit;
 
@@ -35,10 +36,10 @@ function LimitRequest($name, $limit = 1)
 
     controller()
         ->memcache
-        ->set("yaamp-timestamp-$name-{$_SERVER['REMOTE_ADDR']}", microtime(true) , 300);
+        ->set("yaamp-timestamp-$name-$client_ip", microtime(true) , 300);
     controller()
         ->memcache
-        ->set("yaamp-average-$name-{$_SERVER['REMOTE_ADDR']}", $a, 300);
+        ->set("yaamp-average-$name-$client_ip", $a, 300);
 
     return true;
 }
