@@ -71,38 +71,43 @@ static void clean_html(char* string)
 	if (strstr(string, "script")) strcpy(string, "");
 }
 
-void db_query(YAAMP_DB *db, const char *format, ...)
+// false when the query failed: the callers must not read its result
+// (mysql_store_result() is NULL, mysql_insert_id() is meaningless)
+bool db_query(YAAMP_DB *db, const char *format, ...)
 {
 	va_list arglist;
-	if(!db) return;
+	if(!db) return false;
 
 	va_start(arglist, format);
 	int len = vsnprintf(NULL, 0, format, arglist);
 	va_end(arglist);
-	if(len < 0) return;
+	if(len < 0) return false;
 
 	char *buffer = (char *)malloc((size_t)len + 1);
-	if(!buffer) return;
+	if(!buffer) return false;
 
 	va_start(arglist, format);
 	vsnprintf(buffer, (size_t)len + 1, format, arglist);
 	va_end(arglist);
 
+	bool ok = false;
 	while(!g_exiting)
 	{
 		int res = mysql_query(&db->mysql, buffer);
-		if(!res) break;
+		if(!res) { ok = true; break; }
 		res = mysql_errno(&db->mysql);
 
-		stratumlog("SQL ERROR: %d, %s\n", res, mysql_error(&db->mysql));
-		if(res == ER_DUP_ENTRY) break; // rarely seen on new user creation
-		if(res != CR_SERVER_GONE_ERROR && res != CR_SERVER_LOST) exit(1);
+		stratumlog("SQL ERROR: %d, %s (%.160s)\n", res, mysql_error(&db->mysql), buffer);
+		// a lost connection is retried; any other error (bad data, deadlock,
+		// schema) only fails this query, it must not stop the stratum
+		if(res != CR_SERVER_GONE_ERROR && res != CR_SERVER_LOST) break;
 
 		usleep(100*YAAMP_MS);
 		db_reconnect(db);
 	}
 
 	free(buffer);
+	return ok;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -205,7 +210,7 @@ void db_update_coinds(YAAMP_DB *db)
 		"FROM coins WHERE enable AND auto_ready AND algo='%s' ORDER BY index_avg", g_stratum_algo);
 
 	MYSQL_RES *result = mysql_store_result(&db->mysql);
-	if(!result) yaamp_error("Cant query database");
+	if(!result) return; // query failed (logged), retried on the next loop
 
 	MYSQL_ROW row;
 	g_list_coind.Enter();
@@ -404,7 +409,7 @@ void db_update_remotes(YAAMP_DB *db)
 	db_query(db, "select id, speed/1000000, host, port, username, password, time, price, renterid from jobs where active and ready and algo='%s' order by time", g_stratum_algo);
 
 	MYSQL_RES *result = mysql_store_result(&db->mysql);
-	if(!result) yaamp_error("Cant query database");
+	if(!result) return; // query failed (logged), retried on the next loop
 
 	MYSQL_ROW row;
 
@@ -535,7 +540,7 @@ void db_update_renters(YAAMP_DB *db)
 	db_query(db, "select id, balance, updated from renters");
 
 	MYSQL_RES *result = mysql_store_result(&db->mysql);
-	if(!result) yaamp_error("Cant query database");
+	if(!result) return; // query failed (logged), retried on the next loop
 
 	MYSQL_ROW row;
 	g_list_renter.Enter();

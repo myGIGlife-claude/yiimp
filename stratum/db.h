@@ -12,7 +12,7 @@ YAAMP_DB *db_connect();
 char *db_clean_string(YAAMP_DB *db, char *string);
 
 void db_close(YAAMP_DB *p);
-void db_query(YAAMP_DB *db, const char *format, ...) __attribute__((format(printf, 2, 3)));
+bool db_query(YAAMP_DB *db, const char *format, ...) __attribute__((format(printf, 2, 3)));
 
 void db_register_stratum(YAAMP_DB *db);
 void db_update_algos(YAAMP_DB *db);
