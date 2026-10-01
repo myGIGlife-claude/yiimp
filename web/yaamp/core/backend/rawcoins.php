@@ -444,7 +444,7 @@ function updateRawCoin($marketname, $symbol, $name = 'unknown')
                 foreach ($labels->Data as $coin) {
                     if ($coin->Symbol == $symbol) {
                         $name = $coin->Name;
-                        $algo = strtolower($coin->Algorithm);
+                        $algo = preg_replace('/[^a-z0-9_-]/', '', strtolower((string) $coin->Algorithm));
                         if ($algo == 'scrypt')
                             $algo = ''; // cryptopia default generally wrong
                         break;
