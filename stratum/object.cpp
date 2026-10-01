@@ -26,13 +26,13 @@ YAAMP_OBJECT *object_find(CommonList *list, int id, bool lock)
 void object_lock(YAAMP_OBJECT *object)
 {
 	if(!object) return;
-	object->lock_count++;
+	__sync_fetch_and_add(&object->lock_count, 1);
 }
 
 void object_unlock(YAAMP_OBJECT *object)
 {
 	if(!object) return;
-	object->lock_count--;
+	__sync_fetch_and_sub(&object->lock_count, 1);
 }
 
 void object_delete(YAAMP_OBJECT *object)
