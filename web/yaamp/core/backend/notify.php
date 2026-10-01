@@ -139,10 +139,9 @@ function NotifyCheckRules()
                     'V' => $rule->conditionvalue, 'N' => $coin->name, 'SYM' => $coin->symbol,
                     'S2' => $coin->symbol2, 'A' => $coin->master_wallet,
                 );
-                foreach ($vars as $name => $val) {
-                    $command = preg_replace_callback('/(["\']?)\$' . $name . '\1/',
-                        function ($m) use ($val) { return escapeshellarg((string) $val); }, $command);
-                }
+                // one pass: a substituted value is never scanned for vars again
+                $command = preg_replace_callback('/(["\']?)\$(SYM|S2|X|F|T|V|N|A)\1/',
+                    function ($m) use ($vars) { return escapeshellarg((string) $vars[$m[2]]); }, $command);
 
                 $res = system($command);
                 if ($res === false) debuglog("trigger: {$coin->symbol} unable to execute '{$command}'!");
