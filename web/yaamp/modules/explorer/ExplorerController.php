@@ -61,7 +61,7 @@ class ExplorerController extends CommonController
         $coin = $this->getExplorerCoin();
         if ($coin && $coin->no_explorer)
         {
-            $link = $coin->link_explorer;
+            $link = CHtml::encode($coin->link_explorer);
             //$txid = gethexparam('txid');
             //$hash = gethexparam('hash');
             //if (!empty($txid)) $link .= 'tx/'.$txid;

@@ -8,9 +8,9 @@ if (!$DCR) $this->goback();
 $this->pageTitle = 'Tickets - ' . $coin->symbol;
 
 // last week
-$list_since = arraySafeVal($_GET, 'since', time() - (7 * 24 * 3600));
+$list_since = (int) arraySafeVal($_GET, 'since', time() - (7 * 24 * 3600));
 
-$maxrows = arraySafeVal($_GET, 'rows', 2500);
+$maxrows = (int) arraySafeVal($_GET, 'rows', 2500);
 
 $remote = new WalletRPC($coin);
 $info = $remote->getinfo();

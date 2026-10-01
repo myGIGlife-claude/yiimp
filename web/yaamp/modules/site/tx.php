@@ -4,10 +4,10 @@ require dirname(__FILE__) . '/../../ui/lib/pageheader.php';
 $user = getuserparam(getparam('address'));
 if (!$user) return;
 
-$this->pageTitle = $user->username . ' | ' . YAAMP_SITE_NAME;
+$this->pageTitle = CHtml::encode($user->username) . ' | ' . YAAMP_SITE_NAME;
 
 echo "<div class='main-left-box'>";
-echo "<div class='main-left-title'>Transactions to $user->username</div>";
+echo "<div class='main-left-title'>Transactions to " . CHtml::encode($user->username) . "</div>";
 echo "<div class='main-left-inner'>";
 
 $list = getdbolist('db_payouts', "account_id={$user->id} ORDER BY time DESC");

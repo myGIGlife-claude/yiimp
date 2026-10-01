@@ -6,7 +6,7 @@ function showFlashMessage()
 	{
 		echo '<div class="ui-widget">';
 		echo '<div class="ui-state-highlight ui-corner-all" style="color: green; padding: 8px; margin-bottom: 8px;">';
-		echo user()->getFlash('message');
+		echo CHtml::encode(user()->getFlash('message'));
 		echo '</div></div>';
 	}
 
@@ -14,7 +14,7 @@ function showFlashMessage()
 	{
 		echo '<div class="ui-widget">';
 		echo '<div class="ui-state-error ui-corner-all" style="padding: 8px; margin-bottom: 8px;">';
-		echo user()->getFlash('error');
+		echo CHtml::encode(user()->getFlash('error'));
 		echo '</div></div>';
 	}
 }

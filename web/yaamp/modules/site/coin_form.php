@@ -321,7 +321,7 @@ echo CUFHtml::closeCtrlHolder();
 
 // generate a random password
 if(empty($coin->rpcpasswd))
-	$coin->rpcpasswd = preg_replace("|[^\w]|m",'',base64_encode(pack("H*",md5("".time().YAAMP_SITE_URL))));
+	$coin->rpcpasswd = bin2hex(random_bytes(16));
 
 echo CUFHtml::openActiveCtrlHolder($coin, 'rpcpasswd');
 echo CUFHtml::activeLabelEx($coin, 'rpcpasswd');

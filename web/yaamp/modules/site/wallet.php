@@ -126,8 +126,9 @@ foreach($recents as $addr)
 		echo "<tr class='ssrow'><td width=24>";
 
 	if($coin)
-		echo '<img width="16px" src="'.$coin->image.'">';
+		echo '<img width="16px" src="'.CHtml::encode($coin->image).'">';
 
+	$addr = CHtml::encode($addr);
 	echo '</td><td><a class="address" href="/?address='.$addr.'" style="font-family: monospace; font-size: 1.1em;">'.
 		$addr.'</a></td>';
 

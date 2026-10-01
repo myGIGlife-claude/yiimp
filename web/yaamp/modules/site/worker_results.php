@@ -99,10 +99,11 @@ foreach ($workers as $worker) {
     echo "<tr class='ssrow'>";
     echo '<td width="20">' . $coinimg . '</td>';
     echo '<td><b>' . $coinlink . '</b>' . ($coinsym ? '&nbsp;(' . $coinsym . ')' : '-') . '</td>';
-    echo "<td><a href='/?address=$worker->name'><b>$worker->name</b></a></td>";
-    echo "<td>$worker->password</td>";
-    echo "<td title='$worker->ip'>$dns</td>";
-    echo "<td>$worker->version</td>";
+    $name = CHtml::encode($worker->name);
+    echo "<td><a href='/?address=$name'><b>$name</b></a></td>";
+    echo "<td>" . CHtml::encode($worker->password) . "</td>";
+    echo "<td title='" . CHtml::encode($worker->ip) . "'>" . CHtml::encode($dns) . "</td>";
+    echo "<td>" . CHtml::encode($worker->version) . "</td>";
     echo "<td data=\"$user_rate\">$user_rate_h</td>";
     echo "<td>$worker->difficulty</td>";
 
