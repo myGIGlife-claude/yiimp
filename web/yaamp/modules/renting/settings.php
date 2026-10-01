@@ -49,7 +49,8 @@ if you forget your password.</p>
 <tr><td>Email</td><td><input value='$email' type="text" name="deposit_email" placeholder="optional" class="main-text-input" style='width: 280px;'></td></tr>
 <tr><td>API Key</td><td><input readonly value='$renter->apikey' type="text" name="deposit_apikey" class="main-text-input" style='width: 280px;'></td></tr>
 <tr><td>Deposit Address</td><td><input readonly value='$renter->address' type="text" name="deposit_address" class="main-text-input" style='width: 280px;'></td></tr>
-<tr><td>Password</td><td><input type="password" name="deposit_password" placeholder='leave empty for no change' class="main-text-input" style='width: 280px;'></td></tr>
+<tr><td>Current password</td><td><input type="password" name="deposit_current" placeholder='required to change the settings' class="main-text-input" style='width: 280px;'></td></tr>
+<tr><td>New password</td><td><input type="password" name="deposit_password" placeholder='leave empty for no change' class="main-text-input" style='width: 280px;'></td></tr>
 <tr><td>Confirm</td><td><input type="password" name="deposit_confirm" class="main-text-input" style='width: 280px;'></td></tr>
 </table>
 
