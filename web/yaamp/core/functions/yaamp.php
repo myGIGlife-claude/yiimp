@@ -588,7 +588,7 @@ function yaamp_profitability($coin)
 
     $btcmhd = 20116.56761169 / $coin->difficulty * $coin->reward * $coin->price;
     if (!$coin->auxpow && $coin->rpcencoding == 'POW') {
-        $listaux = getdbolist('db_coins', "enable and visible and auto_ready and auxpow and algo='$coin->algo'");
+        $listaux = getdbolist('db_coins', "enable and visible and auto_ready and auxpow and algo=:algo", array(':algo' => $coin->algo));
         foreach ($listaux as $aux) {
             if (!$aux->difficulty)
                 continue;
@@ -706,6 +706,7 @@ function yaamp_pool_rate_rentable($algo = null)
 
 function yaamp_user_rate($userid, $algo = null)
 {
+    $userid = (int) $userid;
     if (!$algo)
         $algo = user()->getState('yaamp-algo');
 
@@ -729,6 +730,7 @@ function yaamp_user_rate($userid, $algo = null)
 
 function yaamp_user_rate_bad($userid, $algo = null)
 {
+    $userid = (int) $userid;
     if (!$algo)
         $algo = user()->getState('yaamp-algo');
 
@@ -756,6 +758,7 @@ function yaamp_user_rate_bad($userid, $algo = null)
 
 function yaamp_worker_rate($workerid, $algo = null)
 {
+    $workerid = (int) $workerid;
     if (!$algo)
         $algo = user()->getState('yaamp-algo');
 
@@ -777,6 +780,7 @@ function yaamp_worker_rate($workerid, $algo = null)
 
 function yaamp_worker_rate_bad($workerid, $algo = null)
 {
+    $workerid = (int) $workerid;
     if (!$algo)
         $algo = user()->getState('yaamp-algo');
 
@@ -859,6 +863,7 @@ function yaamp_rented_rate($algo = null)
 
 function yaamp_job_rate($jobid)
 {
+    $jobid = (int) $jobid;
     $job = getdbo('db_jobs', $jobid);
     if (!$job)
         return 0;
@@ -881,6 +886,7 @@ function yaamp_job_rate($jobid)
 
 function yaamp_job_rate_bad($jobid)
 {
+    $jobid = (int) $jobid;
     $job = getdbo('db_jobs', $jobid);
     if (!$job)
         return 0;
