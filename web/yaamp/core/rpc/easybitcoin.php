@@ -245,8 +245,18 @@ class Bitcoin {
 		$this->raw_response = null;
 
 		$data = json_decode($json);
+		if (!is_object($data)) {
+			$this->error = "invalid json request";
+			return FALSE;
+		}
+		$method = isset($data->method) && is_string($data->method) ? $data->method : '';
+		if (stripos($method, 'dump') !== false || stripos($method, 'backupwallet') !== false) {
+			$this->error = "$method method is not authorized!";
+			return FALSE;
+		}
 		$data->id = $this->id++;
-		debuglog($json);
+		// the params may hold a passphrase or a private key: log the method only
+		debuglog("rpc json request $method");
 
 		$ch = curl_init("{$this->proto}://{$this->username}:{$this->password}@{$this->host}:{$this->port}/{$this->url}");
 		$options = array(
