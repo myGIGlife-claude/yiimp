@@ -348,7 +348,7 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 		strcpy(eversion1, "03000500"); // DIP2 special tx: version 3, type 5 (CbTx)
 
 	char script1[4*1024];
-	sprintf(script1, "%s%s%s08", eheight, templ->flags, etime);
+	snprintf(script1, sizeof(script1), "%s%s%s08", eheight, templ->flags, etime);
 
 	char script2[32] = "746865706f6f6c2e6c6966655c30"; // "thepool.life\0" in hex ascii
 
@@ -356,11 +356,11 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 		coinbase_aux(templ, script2);
 
 	int script_len = strlen(script1)/2 + strlen(script2)/2 + 8;
-	sprintf(templ->coinb1, "%s%s01"
+	snprintf(templ->coinb1, sizeof(templ->coinb1), "%s%s01"
 		"0000000000000000000000000000000000000000000000000000000000000000"
 		"ffffffff%02x%s", eversion1, entime, script_len, script1);
 
-	sprintf(templ->coinb2, "%s00000000", script2);
+	snprintf(templ->coinb2, sizeof(templ->coinb2), "%s00000000", script2);
 
 	// segwit commitment, if needed
 	if (templ->has_segwit_txs)
@@ -726,8 +726,8 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 			strcat(templ->coinb2, echarity_amount);
 			char coinb2_part[1024] = { 0 };
 			char coinb2_len[3] = { 0 };
-			sprintf(coinb2_part, "a9%02x%s87", (unsigned int)(strlen(script_payee) >> 1) & 0xFF, script_payee);
-			sprintf(coinb2_len, "%02x", (unsigned int)(strlen(coinb2_part) >> 1) & 0xFF);
+			snprintf(coinb2_part, sizeof(coinb2_part), "a9%02x%s87", (unsigned int)(strlen(script_payee) >> 1) & 0xFF, script_payee);
+			snprintf(coinb2_len, sizeof(coinb2_len), "%02x", (unsigned int)(strlen(coinb2_part) >> 1) & 0xFF);
 			strcat(templ->coinb2, coinb2_len);
 			strcat(templ->coinb2, coinb2_part);
 			debuglog("pack tx %s\n", coinb2_part);
