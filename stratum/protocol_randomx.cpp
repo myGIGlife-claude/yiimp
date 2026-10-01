@@ -660,6 +660,9 @@ static YAAMP_JOB *rx_last_job(int coinid)
 		YAAMP_JOB *job = (YAAMP_JOB *) li->data;
 		if (!job_can_mine(job) || !job->coind) continue;
 		if (coinid > 0 && job->coind->id != coinid) continue;
+		// locked for the caller (object_prune frees deleted jobs with no
+		// lock), the caller unlocks it
+		object_lock(job);
 		found = job;
 		break;
 	}
@@ -777,6 +780,7 @@ static bool randomx_login(YAAMP_CLIENT *client, json_value *params)
 	if (job) {
 		randomx_job_json(job, client, job_json, sizeof(job_json));
 		client->jobid_sent = job->id;
+		object_unlock(job);
 	}
 
 	char result[2048];
@@ -1006,6 +1010,7 @@ static bool randomx_request(YAAMP_CLIENT *client, const char *method, json_value
 		if (job) {
 			randomx_job_json(job, client, job_json, sizeof(job_json));
 			client->jobid_sent = job->id;
+			object_unlock(job);
 		}
 		*keep = rx_send_result(client, job_json) >= 0;
 		return true;
