@@ -291,7 +291,7 @@ function BackendUpdateDeposit()
         $tx->save();
 
         if ($renter->balance <= 0.0001)
-            dborun("update jobs set active=false, ready=false where id=$renter->id");
+            dborun("update jobs set active=false, ready=false where renterid=$renter->id");
     }
 
 }
