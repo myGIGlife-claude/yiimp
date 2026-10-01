@@ -15,7 +15,6 @@ function tradeogre_api_query($method, $params='')
  function tradeogre_api_query_get($method, $req = array())
 {
 	$uri="https://tradeogre.com/api/v1/$method?" . http_build_query($req,'','&');
-	echo $uri;
 	$ch = curl_init($uri);
  	$key = EXCH_TRADEOGRE_KEY;
 	$secret = EXCH_TRADEOGRE_SECRET;
@@ -33,11 +32,9 @@ function tradeogre_api_query($method, $params='')
 {
 	$uri = "https://tradeogre.com/api/v1/{$method}";
  	$postData = http_build_query($req,'','&');
-	print_r ($postData);
 	$ch = curl_init($uri);
  	$key = EXCH_TRADEOGRE_KEY;
 	$secret = EXCH_TRADEOGRE_SECRET;
- 	curl_setopt($ch, CURLOPT_VERBOSE, true);
      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
