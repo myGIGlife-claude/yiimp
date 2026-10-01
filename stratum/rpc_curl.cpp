@@ -246,7 +246,7 @@ static json_value *curl_json_rpc(YAAMP_RPC *rpc, const char *url, const char *rp
 #endif
 	}
 	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curl_err_str);
-	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0); // never follow a redirect with the credentials
 	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
 	curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, resp_hdr_cb);

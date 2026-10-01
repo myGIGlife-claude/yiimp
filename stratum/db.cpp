@@ -144,7 +144,9 @@ void db_update_algos(YAAMP_DB *db)
 		if (g_list_coind.first) {
 			CLI li = g_list_coind.first;
 			YAAMP_COIND *coind = (YAAMP_COIND *)li->data;
-			snprintf(symbol, sizeof(symbol), "'%.13s'", coind->symbol);
+			// a quote in the symbol would break the query
+			if(strspn(coind->symbol, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-") == strlen(coind->symbol))
+				snprintf(symbol, sizeof(symbol), "'%.13s'", coind->symbol);
 		}
 	}
 
@@ -271,7 +273,7 @@ void db_update_coinds(YAAMP_DB *db)
 					strcpy(cert, "yiimp");
 				}
 				coind->rpc.ssl = 1;
-				sprintf(coind->rpc.cert, "/usr/share/ca-certificates/%s.crt", cert);
+				snprintf(coind->rpc.cert, sizeof(coind->rpc.cert), "/usr/share/ca-certificates/%s.crt", cert);
 			}
 			strcpy(coind->rpc.cert, "");
 			strcpy(coind->rpc.host, buffer);
@@ -282,9 +284,11 @@ void db_update_coinds(YAAMP_DB *db)
 		if(row[4] && row[5])
 		{
 			char buffer[1024];
-			sprintf(buffer, "%s:%s", row[4], row[5]);
+			snprintf(buffer, sizeof(buffer), "%s:%s", row[4], row[5]);
 
-			base64_encode(coind->rpc.credential, buffer);
+			// base64 grows by 4/3, credential is 1024
+			if(strlen(buffer) <= 760) base64_encode(coind->rpc.credential, buffer);
+			else stratumlog("%s: rpc user:password too long\n", coind->symbol);
 			coind->rpc.coind = coind;
 		}
 

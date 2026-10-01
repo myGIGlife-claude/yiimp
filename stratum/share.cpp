@@ -87,10 +87,10 @@ void share_add(YAAMP_CLIENT *client, YAAMP_JOB *job, bool valid, char *extranonc
 	memset(share, 0, sizeof(YAAMP_SHARE));
 
 	share->jobid = job? job->id: 0;
-	strcpy(share->extranonce2, extranonce2);
-	strcpy(share->ntime, ntime);
-	strcpy(share->nonce, nonce);
-	strcpy(share->nonce1, client->extranonce1);
+	snprintf(share->extranonce2, sizeof(share->extranonce2), "%s", extranonce2);
+	snprintf(share->ntime, sizeof(share->ntime), "%s", ntime);
+	snprintf(share->nonce, sizeof(share->nonce), "%s", nonce);
+	snprintf(share->nonce1, sizeof(share->nonce1), "%s", client->extranonce1);
 
 	g_list_share.AddTail(share);
 }

@@ -25,8 +25,8 @@ void db_check_coin_symbol(YAAMP_DB *db, char* symbol)
 		*symbol = '\0';
 		if (!result) return;
 		MYSQL_ROW row = mysql_fetch_row(result);
-		if (row) {
-			strcpy(symbol, row[0]);
+		if (row && row[0]) {
+			strncpy(symbol, row[0], 15);
 		}
 		mysql_free_result(result);
 	} else {
