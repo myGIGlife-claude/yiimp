@@ -75,15 +75,15 @@ foreach ($notifications as $rule)
         $status = '<span class="green"></span>';
     }
 
-    $description = $rule->description;
+    $description = CHtml::encode($rule->description);
     if (!empty($description) && !empty($rule->notifycmd)) $description .= '<br/>';
-    $description .= '<span class="cmd">' . $rule->notifycmd . '</span>';
+    $description .= '<span class="cmd">' . CHtml::encode($rule->notifycmd) . '</span>';
 
     echo '<tr class="ssrow">';
 
-    echo '<td><b>' . $rule->notifytype . '</b></td>';
-    echo '<td>' . $rule->conditiontype . '</td>';
-    echo '<td>' . $rule->conditionvalue . '</td>';
+    echo '<td><b>' . CHtml::encode($rule->notifytype) . '</b></td>';
+    echo '<td>' . CHtml::encode($rule->conditiontype) . '</td>';
+    echo '<td>' . CHtml::encode($rule->conditionvalue) . '</td>';
     echo '<td>' . $description . '</td>';
     echo '<td>' . $status . '</td>';
     echo '<td data="' . $rule->lastchecked . '">' . datetoa2($rule->lastchecked) . '</td>';
