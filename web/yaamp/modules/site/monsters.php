@@ -74,7 +74,9 @@ function showUser($userid, $what)
         echo '<td width=16><img src="' . $coin->image . '" width="16"></td><td width=48><b>' . $coinlink . '</b></td>';
     }
 
-    echo "<td><a href='/site?address=$user->username'><b>$user->username</a></b></td>";
+    $username = CHtml::encode($user->username);
+    $wallet = urlencode($user->username);
+    echo "<td><a href='/site?address=$wallet'><b>$username</b></a></td>";
     echo "<td>$what</td>";
     echo "<td>$d</td>";
 
@@ -91,12 +93,12 @@ function showUser($userid, $what)
 
     if ($user->is_locked) {
         echo "<td>locked</td>";
-        echo "<td><a href='/site/unblockuser?wallet=$user->username'>unblock</a></td>";
+        echo "<td><a data-post href='/site/unblockuser?wallet=$wallet'>unblock</a></td>";
     }
 
     else {
         echo "<td></td>";
-        echo "<td><a href='/site/blockuser?wallet=$user->username'>block</a></td>";
+        echo "<td><a data-post href='/site/blockuser?wallet=$wallet'>block</a></td>";
     }
 
     echo "</tr>";

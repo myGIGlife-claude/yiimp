@@ -1001,24 +1001,25 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 		return;
 	}
 
-	// Kylacoin (KCN), Lyncoin (LCN): "coinbasedevreward": {value, scriptpubkey, address}.
+	// Kylacoin (KCN), Lyncoin (LCN): "coinbasedevreward": {value, scriptpubkey, address},
+	// required anywhere in the coinbase by ConnectBlock (devreward-not-found).
+	// AdventureCoin (ADVC): "developer": {payee, script, amount} (10% of the subsidy), required
+	// exactly at vout[1] by ConnectBlock (bad-cb-developer-fee-amount/-address); amount 0 and
+	// an empty script before the fee starts.
 	// Here "coinbasevalue" is only the miner output (vout[0] of the daemon's coinbase), the
-	// developer output comes on top of it and is required by ConnectBlock (devreward-not-found).
+	// developer output comes on top of it. The witness commitment may be any output: last.
 	json_value *devreward = json_get_object(json_result, "coinbasedevreward");
-	if(devreward && devreward->type == json_object && !coind->hasmasternodes
-		&& json_get_int(devreward, "value") > 0 && json_get_string(devreward, "scriptpubkey"))
+	bool advc_dev = !devreward;
+	if(advc_dev) devreward = json_get_object(json_result, "developer");
+	const char *dev_script = devreward && devreward->type == json_object ?
+		json_get_string(devreward, advc_dev ? "script" : "scriptpubkey") : NULL;
+	json_int_t dev_value = dev_script ? json_get_int(devreward, advc_dev ? "amount" : "value") : 0;
+	if(dev_script && strlen(dev_script) && dev_value > 0 && !coind->hasmasternodes)
 	{
-		const char *dev_script = json_get_string(devreward, "scriptpubkey");
-		json_int_t dev_value = json_get_int(devreward, "value");
-
-		if (templ->has_segwit_txs) {
-			strcat(templ->coinb2, "03"); // commitment + miner + dev
-			strcat(templ->coinb2, commitment);
-		} else {
-			strcat(templ->coinb2, "02");
-		}
+		strcat(templ->coinb2, templ->has_segwit_txs ? "03" : "02"); // miner + dev (+ commitment)
 		job_pack_tx(coind, templ->coinb2, available, NULL);
 		script_pack_tx(coind, templ->coinb2, dev_value, dev_script);
+		if (templ->has_segwit_txs) strcat(templ->coinb2, commitment);
 		strcat(templ->coinb2, "00000000"); // locktime
 
 		coind->reward = (double)available/100000000*coind->reward_mul;

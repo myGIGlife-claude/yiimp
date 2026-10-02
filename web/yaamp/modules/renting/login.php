@@ -13,7 +13,7 @@ $this->widget('UniForm');
 
 $address = getparam('address');
 if ($address == 0) $address = '';
-if (!empty($address) && preg_match('/[^A-Za-z0-9]/', $address))
+if (!empty($address) && !isValidAddress($address))
 {
     die;
 }

@@ -96,7 +96,7 @@ foreach ($markets as $market) {
         $disabled = "coin disabled";
     echo '<td>' . $disabled . '</td>';
 
-    echo '<td class="ops"><a href="/site/balanceUpdate?market=' . $market->id . '">update ticker</a></td>';
+    echo '<td class="ops"><a data-post href="/site/balanceUpdate?market=' . $market->id . '">update ticker</a></td>';
 
     $totals_trade += $market->ontrade * $price;
     $totals += $total;

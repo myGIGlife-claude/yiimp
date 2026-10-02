@@ -22,7 +22,7 @@ echo getAdminSideBarLinks();
 <div id='main_results'></div>
 
 <br><a href='/site/create'><img width=16 src=''><b>CREATE COIN</b></a>
-<br><a href='/site/updateprice'><img width=16 src=''><b>UPDATE PRICE</b></a>
+<br><a data-post href='/site/updateprice'><img width=16 src=''><b>UPDATE PRICE</b></a>
 
 <br><br><br><br><br><br><br><br><br><br>
 <br><br><br><br><br><br><br><br><br><br>

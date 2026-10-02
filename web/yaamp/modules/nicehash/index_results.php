@@ -67,9 +67,9 @@ foreach($list as $nicehash)
 	}
 
 	if($nicehash->active)
-		echo "<td><a href='/nicehash/stop?id=$nicehash->id'>stop</a></td>";
+		echo "<td><a data-post href='/nicehash/stop?id=$nicehash->id'>stop</a></td>";
 	else
-		echo "<td><a href='/nicehash/start?id=$nicehash->id'>start</a></td>";
+		echo "<td><a data-post href='/nicehash/start?id=$nicehash->id'>start</a></td>";
 
 	echo "</tr>";
 }

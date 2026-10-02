@@ -198,7 +198,7 @@ foreach ($db_rows as $row) {
 	echo '<td>'.$row['driver'].'</td>';
 
 	if ($this->admin) {
-		$props = array('style'=>'color: darkred;');
+		$props = array('style'=>'color: darkred;', 'data-post'=>1);
 		echo '<td>'.CHtml::link("delete", '/bench/del?id='.$row['id'], $props).'</td>';
 	}
 

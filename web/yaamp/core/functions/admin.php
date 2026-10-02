@@ -32,12 +32,12 @@ function getAdminWalletLinks($coin, $info = NULL, $src = 'wallet')
     }
 
     if (!$info && $coin->enable)
-        $html .= '<br/>' . CHtml::link("<b>STOP COIND</b>", '/site/stopcoin?id=' . $coin->id);
+        $html .= '<br/>' . CHtml::link("<b>STOP COIND</b>", '/site/stopcoin?id=' . $coin->id, array('data-post' => 1));
 
     if ($coin->auto_ready)
-        $html .= '<br/>' . CHtml::link("<b>UNSET AUTO</b>", '/site/unsetauto?id=' . $coin->id);
+        $html .= '<br/>' . CHtml::link("<b>UNSET AUTO</b>", '/site/unsetauto?id=' . $coin->id, array('data-post' => 1));
     else
-        $html .= '<br/>' . CHtml::link("<b>SET AUTO</b>", '/site/setauto?id=' . $coin->id);
+        $html .= '<br/>' . CHtml::link("<b>SET AUTO</b>", '/site/setauto?id=' . $coin->id, array('data-post' => 1));
 
     $html .= '<br/>';
 

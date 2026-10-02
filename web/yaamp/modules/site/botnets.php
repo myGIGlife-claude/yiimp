@@ -70,7 +70,7 @@ if (!empty($botnets)) foreach ($botnets as $botnet)
     echo '<td>' . $coinimg . '</td>';
     echo '<td>' . $coinsym . '</td>';
     echo '<td>' . $botnet['algo'] . '</td>';
-    echo '<td>' . CHtml::link($user->username, '/?address=' . $user->username) . '</td>';
+    echo '<td>' . CHtml::link(CHtml::encode($user->username), '/?address=' . urlencode($user->username)) . '</td>';
     echo '<td data="' . $botnet['time'] . '">' . $d . '</td>';
     echo '<td>' . $botnet['pid'] . '</td>';
     echo '<td>' . $botnet['ips'] . '</td>';
@@ -79,13 +79,13 @@ if (!empty($botnets)) foreach ($botnets as $botnet)
 
     echo '<td class="actions" align="right">';
 
-    if ($user->logtraffic) echo '<a href="/site/loguser?id=' . $user->id . '&en=0">unwatch</a> ';
-    else echo '<a href="/site/loguser?id=' . $user->id . '&en=1">watch</a> ';
+    if ($user->logtraffic) echo '<a data-post href="/site/loguser?id=' . $user->id . '&en=0">unwatch</a> ';
+    else echo '<a data-post href="/site/loguser?id=' . $user->id . '&en=1">watch</a> ';
 
-    if ($user->is_locked) echo '<a href="/site/unblockuser?wallet=' . $user->username . '">unblock</a> ';
-    else echo '<a href="/site/blockuser?wallet=' . $user->username . '">block</a> ';
+    if ($user->is_locked) echo '<a data-post href="/site/unblockuser?wallet=' . urlencode($user->username) . '">unblock</a> ';
+    else echo '<a data-post href="/site/blockuser?wallet=' . urlencode($user->username) . '">block</a> ';
 
-    echo '<a href="/site/banuser?id=' . $user->id . '"><span class="red">BAN</span></a>';
+    echo '<a data-post href="/site/banuser?id=' . $user->id . '"><span class="red">BAN</span></a>';
 
     echo '</td>';
 

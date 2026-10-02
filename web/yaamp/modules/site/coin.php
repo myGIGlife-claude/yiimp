@@ -32,20 +32,20 @@ app()
     ->clientScript
     ->registerCoreScript('jquery.ui'); // dialog
 /*
-echo "<br><a href='/site/makeconfigfile?id=$coin->id'><b>MAKE CONFIG & START</b></a>";
+echo "<br><a data-post href='/site/makeconfigfile?id=$coin->id'><b>MAKE CONFIG & START</b></a>";
 
 if($info)
 {
-	echo "<br><a href='/site/restartcoin?id=$coin->id'><b>RESTART COIND</b></a>";
-	echo "<br><a href='/site/stopcoin?id=$coin->id'><b>STOP COIND</b></a>";
+	echo "<br><a data-post href='/site/restartcoin?id=$coin->id'><b>RESTART COIND</b></a>";
+	echo "<br><a data-post href='/site/stopcoin?id=$coin->id'><b>STOP COIND</b></a>";
 
 	if(isset($info['balance']) && $info['balance'] && !empty($coin->deposit_address))
 		echo "<br><a href='javascript:showSellAmountDialog()'><b>SEND BALANCE TO</b></a> - $coin->deposit_address";
 }
 else
 {
-	echo "<br><a href='/site/startcoin?id=$coin->id'><b>START COIND</b></a>";
-	echo "<br><br><a href='/site/resetblockchain?id=$coin->id'><b>RESET BLOCKCHAIN</b></a>";
+	echo "<br><a data-post href='/site/startcoin?id=$coin->id'><b>START COIND</b></a>";
+	echo "<br><br><a data-post href='/site/resetblockchain?id=$coin->id'><b>RESET BLOCKCHAIN</b></a>";
 
 	if($coin->installed)
 		echo "<br><a href='javascript:uninstall_coin();'><b>UNINSTALL COIN</b></a><br>";
@@ -54,10 +54,10 @@ else
 */
 echo <<<END
 
-<br/><a class="red" href="/site/deleteearnings?id={$coin->id}"><b>DELETE EARNINGS</b></a>
-<br/><a href="/site/clearearnings?id={$coin->id}"><b>CLEAR EARNINGS</b></a>
-<br/><a href="/site/checkblocks?id={$coin->id}"><b>UPDATE BLOCKS</b></a>
-<br/><a href="/site/payuserscoin?id={$coin->id}"><b>DO PAYMENTS</b></a>
+<br/><a data-post class="red" href="/site/deleteearnings?id={$coin->id}"><b>DELETE EARNINGS</b></a>
+<br/><a data-post href="/site/clearearnings?id={$coin->id}"><b>CLEAR EARNINGS</b></a>
+<br/><a data-post href="/site/checkblocks?id={$coin->id}"><b>UPDATE BLOCKS</b></a>
+<br/><a data-post href="/site/payuserscoin?id={$coin->id}"><b>DO PAYMENTS</b></a>
 <br/>
 </div>
 
@@ -92,7 +92,7 @@ function uninstall_coin()
 	if(!confirm("Uninstall this coin?"))
 		return;
 
-	window.location.href = '/site/uninstallcoin?id=$coin->id';
+	yaampPost('/site/uninstallcoin?id=$coin->id');
 }
 
 var main_delay=30000;
@@ -135,9 +135,9 @@ function showSellAmountDialog(marketname, address, marketid, bookmarkid)
 			{
 				amount = $('#input_sell_amount').val();
 				if (marketid > 0)
-					window.location.href = '/market/sellto?id='+marketid+'&amount='+amount;
+					yaampPost('/market/sellto?id='+marketid+'&amount='+encodeURIComponent(amount));
 				else
-					window.location.href = '/site/bookmarkSend?id='+bookmarkid+'&amount='+amount;
+					yaampPost('/site/bookmarkSend?id='+bookmarkid+'&amount='+encodeURIComponent(amount));
 			},
 		}
 	});

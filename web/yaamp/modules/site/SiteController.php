@@ -4,6 +4,12 @@ class SiteController extends CommonController
 {
     public $defaultAction = 'index';
 
+    protected $postActions = array('peerremove', 'bookmarkdel', 'bookmarksend', 'triggerenable', 'triggerreset', 'triggerdel',
+        'clearearnings', 'clearearning', 'canceluserpayment', 'canceluserspayment', 'balanceupdate', 'resetblockchain',
+        'restartcoin', 'startcoin', 'stopcoin', 'makeconfigfile', 'setauto', 'unsetauto', 'banuser', 'blockuser',
+        'unblockuser', 'loguser', 'payuserscoin', 'checkblocks', 'deleteearnings', 'deleteearning', 'deleteexchange',
+        'clearmarket', 'clearorder', 'cancelorder', 'updateprice', 'uninstallcoin', 'optimize', 'runexchange');
+
     ///////////////////////////////////////////////////
     // Security Note: You can rename this action as you
     // want, to customize the admin entrance url...

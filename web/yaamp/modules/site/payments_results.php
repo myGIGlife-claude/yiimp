@@ -95,7 +95,7 @@ foreach ($list as $user) {
         $immkey = "0-{$user->id}";
     }
 
-    echo '<td><a href="/?address=' . $user->username . '"><b>' . $user->username . '</b></a></td>';
+    echo '<td><a href="/?address=' . urlencode($user->username) . '"><b>' . CHtml::encode($user->username) . '</b></a></td>';
     echo '<td>' . $d . '</td>';
 
     echo '<td class="currency">' . $coinbalance . '</td>';
@@ -116,7 +116,7 @@ foreach ($list as $user) {
 
     echo '<td class="actions">';
     if ($failbalance != '-')
-        echo '<a href="/site/cancelUserPayment?id=' . $user->id . '">[add to balance]</a>';
+        echo '<a data-post href="/site/cancelUserPayment?id=' . $user->id . '">[add to balance]</a>';
     echo '</td>';
 
     echo "</tr>";
@@ -139,7 +139,7 @@ if ($coin_id) {
     echo '<tr><th>Immature</th><td>' . bitcoinvaluetoa($totalimmat) . " $symbol</td></tr>";
     if ($totalfailed) {
         echo '<tr class="red"><th>Failed</th><td>' . bitcoinvaluetoa($totalfailed) . " $symbol</td></tr>";
-        echo '<tr><td colspan="2">' . '<a href="/site/cancelUsersPayment?id=' . $coin_id . '" title="Add to balance all failed payouts">Reset all failed</a></td></tr>';
+        echo '<tr><td colspan="2">' . '<a data-post href="/site/cancelUsersPayment?id=' . $coin_id . '" title="Add to balance all failed payouts">Reset all failed</a></td></tr>';
     }
     echo '</tr></table>';
     echo '</div>';

@@ -182,7 +182,7 @@ function order_edit(jobid)
 			"Delete": function()
 			{
 				var r = confirm("Are you sure you want to delete this job?");
-				if(r) window.location.href = '/renting/orderdelete?id='+jobid;
+				if(r) yaampPost('/renting/orderdelete?id='+jobid);
 			},
 		}
 	});
@@ -210,7 +210,7 @@ function order_new()
 function reset_spent()
 {
 	var r = confirm("Are you sure you want to reset the spent counter?");
-	window.location.href = '/renting/resetspent?address=$renter->address';
+	if(r) yaampPost('/renting/resetspent?address=$renter->address');
 }
 
 function show_job_graph(jobid)
