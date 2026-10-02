@@ -337,19 +337,25 @@ class ApiController extends CommonController
 
     /////////////////////////////////////////////////
 
-    public function actionRental()
+    // renter of the api key (key=), every rental call needs it, rate limited per ip.
+    // rental_price, rental_hashrate, rental_start and rental_stop change the jobs and still
+    // accept GET: existing API clients call them that way. The key is the authentication,
+    // the browser UI uses the POST-only renting/jobs_* actions.
+    private function rentalRenter($limit)
     {
-        if (!LimitRequest('api-rental', 10))
-            return;
-        if (!YAAMP_RENTAL)
-            return;
-
-        $key    = getparam('key');
+        if (!YAAMP_RENTAL || !LimitRequest('api-'.$this->action->id, $limit))
+            return null;
+        $key = getparam('key');
         if (!is_string($key) || strlen($key) < 16)
-            return;
-        $renter = getdbosql('db_renters', "apikey=:apikey", array(
+            return null;
+        return getdbosql('db_renters', "apikey=:apikey", array(
             ':apikey' => $key
         ));
+    }
+
+    public function actionRental()
+    {
+        $renter = $this->rentalRenter(10);
         if (!$renter)
             return;
 
@@ -392,15 +398,7 @@ class ApiController extends CommonController
 
     public function actionRental_price()
     {
-        if (!YAAMP_RENTAL)
-            return;
-
-        $key    = getparam('key');
-        if (!is_string($key) || strlen($key) < 16)
-            return;
-        $renter = getdbosql('db_renters', "apikey=:apikey", array(
-            ':apikey' => $key
-        ));
+        $renter = $this->rentalRenter(1);
         if (!$renter)
             return;
 
@@ -418,15 +416,7 @@ class ApiController extends CommonController
 
     public function actionRental_hashrate()
     {
-        if (!YAAMP_RENTAL)
-            return;
-
-        $key    = getparam('key');
-        if (!is_string($key) || strlen($key) < 16)
-            return;
-        $renter = getdbosql('db_renters', "apikey=:apikey", array(
-            ':apikey' => $key
-        ));
+        $renter = $this->rentalRenter(1);
         if (!$renter)
             return;
 
@@ -444,15 +434,7 @@ class ApiController extends CommonController
 
     public function actionRental_start()
     {
-        if (!YAAMP_RENTAL)
-            return;
-
-        $key    = getparam('key');
-        if (!is_string($key) || strlen($key) < 16)
-            return;
-        $renter = getdbosql('db_renters', "apikey=:apikey", array(
-            ':apikey' => $key
-        ));
+        $renter = $this->rentalRenter(1);
         if (!$renter || $renter->balance <= 0)
             return;
 
@@ -469,15 +451,7 @@ class ApiController extends CommonController
 
     public function actionRental_stop()
     {
-        if (!YAAMP_RENTAL)
-            return;
-
-        $key    = getparam('key');
-        if (!is_string($key) || strlen($key) < 16)
-            return;
-        $renter = getdbosql('db_renters', "apikey=:apikey", array(
-            ':apikey' => $key
-        ));
+        $renter = $this->rentalRenter(1);
         if (!$renter)
             return;
 

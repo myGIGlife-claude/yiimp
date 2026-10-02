@@ -98,6 +98,23 @@ static json_int_t pack_template_payment(YAAMP_COIND *coind, char *dests, size_t 
 }
 
 
+// script of the address of a required charity/dev/founder output. An empty or invalid address
+// would pay that output to an empty script (the reward is lost): the template is dropped
+// instead (empty coinb2), so the coin is not mined until the address is fixed. The ERROR is
+// logged once per coin and hour.
+static bool coinbase_payee_script(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, const char *address, char *script)
+{
+	if (address && address[0] && base58_decode(address, script) && script[0]) return true;
+	time_t now = time(NULL);
+	if (coind->charity_error_time + 3600 <= now) {
+		coind->charity_error_time = now;
+		stratumlog("ERROR %s: charity/dev address '%s' is empty or invalid, the coin is not mined until it is fixed\n",
+			coind->symbol, address ? address : "");
+	}
+	templ->coinb2[0] = '\0';
+	return false;
+}
+
 // scriptPubKey (hex) of an address, asked to the daemon (validateaddress) once
 static bool coind_address_script(YAAMP_COIND *coind, const char *address, char *script, size_t size)
 {
@@ -714,12 +731,8 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 
 		if(strlen(coind->charity_address) > 0){
 			char script_payee[1024];
-			char charity_payee[256] = { 0 };
-			snprintf(charity_payee, sizeof(charity_payee), "%s", coind->charity_address);
-			if (strlen(charity_payee) == 0)
-				stratumlog("ERROR %s has no charity_address set!\n", coind->name);
-
-			base58_decode(charity_payee, script_payee);
+			if (!coinbase_payee_script(coind, templ, coind->charity_address, script_payee))
+				return;
 
 			json_int_t charity_amount = json_get_int(json_result, "donation_amount");
 			coind->charity_amount = charity_amount;
@@ -762,10 +775,9 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 		bool founder_use_p2sh = (strcmp(coind->symbol, "PGN") == 0);
 		json_int_t amount = json_get_int(founder, "amount");
 		if(payee && amount) {
-			if (payee) snprintf(founder_payee, 255, "%s", payee);
-			if (strlen(founder_payee) == 0)
-				stratumlog("ERROR %s has no charity_address set!\n", coind->name);
-			base58_decode(founder_payee, founder_script);
+			snprintf(founder_payee, 255, "%s", payee);
+			if (!coinbase_payee_script(coind, templ, founder_payee, founder_script))
+				return;
 			available -= amount;
 
 			if (templ->has_segwit_txs) {
@@ -803,10 +815,9 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 		bool founder_use_p2sh = (strcmp(coind->symbol, "RITO") == 0);
 		json_int_t amount = json_get_int(founder, "amount");
 		if(payee && amount) {
-			if (payee) snprintf(founder_payee, 255, "%s", payee);
-			if (strlen(founder_payee) == 0)
-				stratumlog("ERROR %s has no charity_address set!\n", coind->name);
-			base58_decode(founder_payee, founder_script);
+			snprintf(founder_payee, 255, "%s", payee);
+			if (!coinbase_payee_script(coind, templ, founder_payee, founder_script))
+				return;
 			available -= amount;
 
 			if (templ->has_segwit_txs) {
@@ -1034,10 +1045,8 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 		const char *payee = json_get_string(json_result, "payee");
 		if (payee) snprintf(charity_payee, 255, "%s", payee);
 		else snprintf(charity_payee, sizeof(charity_payee), "%s", coind->charity_address);
-		if (strlen(charity_payee) == 0)
-			stratumlog("ERROR %s has no charity_address set!\n", coind->name);
-
-		base58_decode(charity_payee, script_payee);
+		if (!coinbase_payee_script(coind, templ, charity_payee, script_payee))
+			return;
 
 		json_int_t charity_amount = json_get_int(json_result, "payee_amount");
 		if (charity_amount <= 0)
@@ -1393,7 +1402,6 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
  			// founder/masternode vars
 			char founder_script[1024] = { 0};
 			char masternode_script[1024] = { 0};
-			char founder_payee[256] = { 0};
 			char masternode_payee[256] = { 0};
 			json_int_t part_amount = (5000000000);
 			json_int_t pool_amount = (5000000000*4);
@@ -1407,8 +1415,8 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 			available -= part_amount;
 
  			// payee script
-			snprintf(founder_payee, 255, "%s", payee2);
-			base58_decode(founder_payee, founder_script);
+			if (!coinbase_payee_script(coind, templ, payee2, founder_script))
+				return;
 			available -= part_amount;
 
  			// total outputs
@@ -1429,12 +1437,11 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
       char payees[16];
       char sinpayee[256] = {0};
       char sinscript[1024] = {0};
-      char devpayee[256] = {0};
       char devscript[1024] = {0};
       const char *devpayaddr = json_get_string(json_result, "payee");
       json_int_t devfee_amount = json_get_int(json_result, "payee_amount");
-      snprintf(devpayee, 255, "%s", devpayaddr);
-      base58_decode(devpayee, devscript);
+      if (!coinbase_payee_script(coind, templ, devpayaddr, devscript))
+        return;
       npayees++;
 
       available -= devfee_amount;
@@ -1533,19 +1540,18 @@ void coinbase_create(YAAMP_COIND *coind, YAAMP_JOB_TEMPLATE *templ, json_value *
 			return;
 		}
 		if(coind->charity_percent) {
-      char charity_payee[256] = { 0 };
-    	const char *payee = json_get_string(json_result, "payee");
-      if (payee) snprintf(charity_payee, 255, "%s", payee);
-          else snprintf(charity_payee, sizeof(charity_payee), "%s", coind->charity_address);
-      if (strlen(charity_payee) == 0)
-          stratumlog("ERROR %s has no charity_address set!\n", coind->name);
-          json_int_t charity_amount = (available * coind->charity_percent) / 100;
-          npayees++;
-          available -= charity_amount;
-          coind->charity_amount = charity_amount;
-          base58_decode(charity_payee, script_payee);
-          job_pack_tx(coind, script_dests, charity_amount, script_payee);
-      }
+			char charity_payee[256] = { 0 };
+			const char *payee = json_get_string(json_result, "payee");
+			if (payee) snprintf(charity_payee, 255, "%s", payee);
+			else snprintf(charity_payee, sizeof(charity_payee), "%s", coind->charity_address);
+			if (!coinbase_payee_script(coind, templ, charity_payee, script_payee))
+				return;
+			json_int_t charity_amount = (available * coind->charity_percent) / 100;
+			npayees++;
+			available -= charity_amount;
+			coind->charity_amount = charity_amount;
+			job_pack_tx(coind, script_dests, charity_amount, script_payee);
+		}
 		// smart contracts balance refund, same format as DASH superblocks
 		json_value* screfund = json_get_array(json_result, "screfund");
 		if(screfund && screfund->u.array.length) {

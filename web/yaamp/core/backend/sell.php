@@ -32,8 +32,9 @@ function sellCoinToExchange($coin)
 
         //        debuglog("sending $amount $coin->symbol to main wallet");
 
-        $tx = $remote->sendtoaddress($coin2->master_wallet, $amount);
-        //        if(!$tx) debuglog($remote->error);
+        // no claim: the amount is read from the wallet balance on each run, a send made after a
+        // timeout only moves what is left
+        BackendWalletSend($coin, $remote, function () { return true; }, function () {}, $coin2->master_wallet, $amount);
 
         return;
     }
@@ -82,9 +83,11 @@ function sellCoinToExchange($coin)
 
     //    sleep(1);
 
-    $tx = $remote->sendtoaddress($deposit_address, $amount);
+    // claimed before the send (shared with market/sellto), kept after an unclear failure
+    $key = "market-{$market->id}-sending";
+    $tx = BackendWalletSendOnce($coin, $remote, $key, $deposit_address, $amount);
     // retry with less only when the wallet refused the first send (a timeout may have sent it)
-    if (!$tx && $remote->rejected()) {
+    if ($tx === false && $remote->rejected()) {
         //    debuglog($remote->error);
 
         if ($coin->symbol == 'DIME')
@@ -99,9 +102,11 @@ function sellCoinToExchange($coin)
         //        debuglog("sending $amount $coin->symbol to $deposit_address");
         sleep(1);
 
-        $tx = $remote->sendtoaddress($deposit_address, $amount);
+        $tx = BackendWalletSendOnce($coin, $remote, $key, $deposit_address, $amount);
     }
 
+    if ($tx === null)
+        return; // payment running or an earlier send to check
     if (!$tx) {
         debuglog("sending $amount $coin->symbol to $deposit_address");
         debuglog($remote->error);

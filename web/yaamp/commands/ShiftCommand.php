@@ -229,7 +229,12 @@ class ShiftCommand extends CConsoleCommand
 			return 1;
 		}
 
-		$res = $remote->sendtoaddress($deposit, (float)$amount, "", "", true);
+		// as the other wallet sends: coin lock, claimed until the wallet answers
+		$res = BackendWalletSendOnce($coin, $remote, "shift-$deposit-sending", $deposit, (float)$amount, "", "", true);
+		if ($res === null)
+			echo "a payment of $symbol is running or a send to $deposit is to check (setting shift-$deposit-sending)\n";
+		else if (!$res && !$remote->rejected())
+			echo "may have been sent: check the wallet before sending again, then remove the setting shift-$deposit-sending\n";
 		echo json_encode($res)."\n";
 
 	}

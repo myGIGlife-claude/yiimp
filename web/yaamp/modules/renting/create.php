@@ -1,5 +1,5 @@
 <?php
-$code = getparam('create_code');
+$code = (string) arraySafeVal($_POST, 'create_code'); // POST only (postActions)
 if (!$code)
 {
     controller()->redirect('/renting');

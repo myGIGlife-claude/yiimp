@@ -32,9 +32,12 @@ function BackendRentingUpdate()
         $factor = yaamp_algo_mBTC_factor($submit->algo); // 1000 for sha256
         $amount /= $factor;
 
-        $submit->amount = $amount - $amount * YAAMP_FEES_RENTING / 100;
-        $submit->status = 1;
-        $submit->save();
+        // charged once, even with two runs at the same time
+        if (!dborun("UPDATE jobsubmits SET status=1, amount=:amount WHERE id=:id AND status=0", array(
+            ':amount' => $amount - $amount * YAAMP_FEES_RENTING / 100,
+            ':id' => $submit->id
+        )))
+            continue;
 
         $job = getdbo('db_jobs', $submit->jobid);
         if (!$job) {
@@ -49,17 +52,20 @@ function BackendRentingUpdate()
             continue;
         }
 
-        $renter->balance -= $amount;
-        $renter->spent += $amount;
-
-        if ($renter->balance <= 0.00001000) {
-            debuglog("resetting balance to 0, $renter->balance, $renter->id, $renter->address");
-            $renter->balance = 0;
+        // hash power already delivered: charged up to the balance, in one UPDATE (a save() of
+        // the record would race with deposits and withdraws)
+        dborun("UPDATE renters SET balance=GREATEST(balance-:amount, 0), spent=spent+:spent,
+            updated=:time WHERE id=:id", array(
+            ':amount' => $amount,
+            ':spent' => $amount,
+            ':time' => time(),
+            ':id' => $renter->id
+        ));
+        if (dboscalar("SELECT balance FROM renters WHERE id=:id", array(':id' => $renter->id)) <= 0.00001000) {
+            debuglog("resetting balance to 0, $renter->id, $renter->address");
+            dborun("UPDATE renters SET balance=0 WHERE id=:id AND balance <= 0.00001", array(':id' => $renter->id));
             dborun("update jobs set active=false, ready=false where renterid=$renter->id");
         }
-
-        $renter->updated = time();
-        $renter->save();
     }
 
     //    debuglog(__FUNCTION__);
@@ -218,9 +224,9 @@ function BackendUpdateDeposit()
         $rentertx->save();
 
         $renter->unconfirmed = 0;
-        $renter->balance += $a;
         $renter->updated = time();
         $renter->save();
+        db_renters::addBalance($renter->id, $a);
     }
 
     $list = $remote->listaccounts(0);
@@ -267,43 +273,41 @@ function BackendUpdateDeposit()
         //        debuglog("$renter->balance < $tx->amount + $fees");
         $tx->amount = bitcoinvaluetoa(min($tx->amount, $renter->balance - $fees));
         if ($tx->amount < $fees * 2) {
-            $tx->tx = 'failed';
-            $tx->save();
-
+            dborun("UPDATE rentertxs SET tx='failed' WHERE id=:id AND tx='scheduled'", array(':id' => $tx->id));
             continue;
         }
 
-        // claimed before the send: an interrupted run never sends it again
-        if (!dborun("UPDATE rentertxs SET tx='sending' WHERE id=:id AND tx='scheduled'", array(':id' => $tx->id)))
-            continue;
+        // claimed ('scheduled' -> 'sending') and debited before the send, in one transaction:
+        // an interrupted run never sends it again. Given back only when the wallet refused it
+        $debit = $tx->amount + $fees;
+        $claim = function () use ($tx, $debit) {
+            return dbotransaction(function () use ($tx, $debit) {
+                return dborun("UPDATE rentertxs SET tx='sending', amount=:amount WHERE id=:id AND tx='scheduled'", array(
+                    ':amount' => $tx->amount,
+                    ':id' => $tx->id
+                )) && db_renters::addBalance($tx->renterid, -$debit);
+            });
+        };
+        $release = function () use ($tx, $debit) {
+            dbotransaction(function () use ($tx, $debit) {
+                return dborun("UPDATE rentertxs SET tx='failed' WHERE id=:id AND tx='sending'", array(':id' => $tx->id))
+                    && db_renters::addBalance($tx->renterid, $debit);
+            });
+        };
 
         debuglog("withdraw send $renter->id $renter->address sendtoaddress($tx->address, $tx->amount)");
-        $tx->tx = $remote->sendtoaddress($tx->address, round($tx->amount, 8));
-
-        if (!$tx->tx && $remote->rejected()) {
-            $tx->tx = 'failed';
-            $tx->save();
-
-            continue;
-        }
-        if (!$tx->tx) {
+        $txid = BackendWalletSend($btc, $remote, $claim, $release, $tx->address, round($tx->amount, 8));
+        if ($txid === null || (!$txid && $remote->rejected()))
+            continue; // not claimed (retried on the next run) or refused (failed, given back)
+        if (!$txid) {
             // may have been sent (timeout): kept as 'sending' and debited, for a manual check
             debuglog("withdraw $tx->id to check: {$remote->error}");
             send_email_alert('renting', "renter withdraw tx to check", "withdraw $tx->id of renter $renter->id, $tx->amount to $tx->address: {$remote->error}\r\nCheck your wallet recent transactions to know if it was sent.");
-            $tx->tx = 'sending';
+        } else {
+            dborun("UPDATE rentertxs SET tx=:tx WHERE id=:id", array(':tx' => $txid, ':id' => $tx->id));
         }
 
-        $renter->balance -= $tx->amount + $fees;
-        $renter->balance = max($renter->balance, 0);
-
-        dborun("update renters set balance=GREATEST(balance-:amount, 0) where id=:id", array(
-            ':amount' => $tx->amount + $fees,
-            ':id' => $renter->id
-        ));
-
-        $tx->save();
-
-        if ($renter->balance <= 0.0001)
+        if (dboscalar("SELECT balance FROM renters WHERE id=:id", array(':id' => $renter->id)) <= 0.0001)
             dborun("update jobs set active=false, ready=false where renterid=$renter->id");
     }
 

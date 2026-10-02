@@ -13,14 +13,14 @@ class RentingController extends CommonController
         );
     }
 
-    protected $postActions = array('orderdelete', 'resetspent', 'jobs_start', 'jobs_stop', 'jobs_startall', 'jobs_stopall', 'withdraw', 'ordersave');
+    protected $postActions = array('create', 'orderdelete', 'resetspent', 'jobs_start', 'jobs_stop', 'jobs_startall', 'jobs_stopall', 'withdraw', 'ordersave');
 
     protected function beforeAction($action)
     {
         if (!parent::beforeAction($action)) return false;
 
         // the renter forms carry the session token (the cross-site headers are not always sent)
-        $forms = array('index', 'login', 'create');
+        $forms = array('index', 'login');
         if (app()->request->isPostRequest && in_array(strtolower($action->id), $forms) && !$this->hasValidCsrfToken())
         {
             debuglog("renting: POST without token refused {$action->id} from ".arraySafeVal($_SERVER, 'REMOTE_ADDR'));

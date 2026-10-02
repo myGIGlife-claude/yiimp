@@ -4,7 +4,7 @@ class SiteController extends CommonController
 {
     public $defaultAction = 'index';
 
-    protected $postActions = array('peerremove', 'bookmarkdel', 'bookmarksend', 'triggerenable', 'triggerreset', 'triggerdel',
+    protected $postActions = array('peerremove', 'bookmarkdel', 'bookmarksend', 'bookmarkclear', 'triggerenable', 'triggerreset', 'triggerdel',
         'clearearnings', 'clearearning', 'canceluserpayment', 'canceluserspayment', 'balanceupdate', 'resetblockchain',
         'restartcoin', 'startcoin', 'stopcoin', 'makeconfigfile', 'setauto', 'unsetauto', 'banuser', 'blockuser',
         'unblockuser', 'loguser', 'payuserscoin', 'checkblocks', 'deleteearnings', 'deleteearning', 'deleteexchange',
@@ -318,15 +318,20 @@ class SiteController extends CommonController
             $amount = min($amount, $info['balance'] - $info['paytxfee']);
             $amount = round($amount, 8);
 
-            $tx = $remote->sendtoaddress($bookmark->address, $amount);
-            if (!$tx) {
+            // claimed before the send, kept after an unclear failure until bookmarkClear
+            $key = "bookmark-{$bookmark->id}-sending";
+            $tx = BackendWalletSendOnce($coin, $remote, $key, $bookmark->address, $amount);
+
+            if ($tx === null) {
+                user()->setFlash('error', settings_get($key) ?
+                    "a previous send to {$bookmark->address} may have been made: check the wallet, then clear it" :
+                    "a payment of {$coin->symbol} is running, try again later");
+            } else if (!$tx) {
                 debuglog("unable to send $amount {$coin->symbol} to bookmark {$bookmark->address}");
                 debuglog($remote->error);
+                if (!$remote->rejected())
+                    send_email_alert('bookmark', "{$coin->symbol} bookmark tx to check", "sending $amount {$coin->symbol} to {$bookmark->address}: {$remote->error}\r\nCheck your wallet recent transactions to know if it was sent.");
                 user()->setFlash('error', $remote->error);
-                $this->redirect(array(
-                    'site/coin',
-                    'id' => $coin->id
-                ));
             } else {
                 debuglog("sent $amount {$coin->symbol} to bookmark {$bookmark->address}");
                 $bookmark->lastused = time();
@@ -340,6 +345,17 @@ class SiteController extends CommonController
             'site/coin',
             'id' => $coin->id
         ));
+    }
+
+    // the admin checked the wallet after an unclear bookmark send: sending is allowed again
+    public function actionBookmarkClear()
+    {
+        if (!$this->admin)
+            return;
+        $bookmark = getdbo('db_bookmarks', getiparam('id'));
+        if ($bookmark)
+            settings_unset("bookmark-{$bookmark->id}-sending");
+        $this->goback();
     }
 
     /////////////////////////////////////////////////
@@ -1206,6 +1222,7 @@ class SiteController extends CommonController
         if ($market) {
             $market->lastsent = null;
             $market->save();
+            settings_unset("market-{$market->id}-sending");
         }
         $this->goback();
     }

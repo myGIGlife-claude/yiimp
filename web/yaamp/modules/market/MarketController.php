@@ -89,14 +89,22 @@ class MarketController extends CommonController
 
         debuglog("selling ($market->deposit_address, $amount)");
 
-        $tx = $remote->sendtoaddress($market->deposit_address, $amount);
+        // claimed before the send (shared with the sell cron), kept after an unclear failure
+        // until the market is cleared
+        $key = "market-{$market->id}-sending";
+        $tx = BackendWalletSendOnce($coin, $remote, $key, $market->deposit_address, $amount);
         if (!$tx)
         {
-            if (!$remote->rejected())
+            if ($tx === null)
+                $remote->error = settings_get($key) ?
+                    "a previous send to $market->name may have been made: check the wallet, then clear the market" :
+                    "a payment of $coin->symbol is running, try again later";
+            else if (!$remote->rejected())
             {
                 // may have been sent (timeout): no automatic sell to this market before its next trade
                 $market->lastsent = time();
                 $market->save();
+                send_email_alert('sell', "{$coin->symbol} sell tx to check", "sending $amount {$coin->symbol} to $market->name $market->deposit_address: {$remote->error}\r\nCheck your wallet recent transactions to know if it was sent.");
             }
             user()->setFlash('error', $remote->error);
             $this->redirect(array(
