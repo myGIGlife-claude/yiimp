@@ -30,6 +30,28 @@ class db_accounts extends CActiveRecord
 		);
 	}
 
+	// the balance only changes with addBalance() (or an UPDATE): saving a record read before
+	// a credit or a payment must not write its old balance back
+	public function update($attributes=null)
+	{
+		if ($attributes === null)
+			$attributes = array_diff($this->attributeNames(), array('balance'));
+		return parent::update($attributes);
+	}
+
+	// atomic balance change: a credit always applies, a debit only when the balance covers it.
+	// Returns the number of accounts changed (0: unknown account, balance too low or no change)
+	public static function addBalance($id, $amount)
+	{
+		$params = array(':id' => $id, ':amount' => $amount);
+		$cond = '';
+		if ($amount < 0) {
+			$cond = ' AND balance >= :debit';
+			$params[':debit'] = -$amount;
+		}
+		return dborun("UPDATE accounts SET balance = IFNULL(balance,0) + :amount WHERE id=:id$cond", $params);
+	}
+
 	public function deleteWithDeps()
 	{
 		$user = $this;

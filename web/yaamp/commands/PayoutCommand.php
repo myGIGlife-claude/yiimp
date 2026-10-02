@@ -198,12 +198,9 @@ class PayoutCommand extends CConsoleCommand
 						$payout->amount = $amount;
 						$payout->fee = abs(arraySafeVal($tx,'fee'));
 						$nbCreated += $payout->save();
-						$user = getdbo('db_accounts', $uid);
-						if ($user) {
-							$user->balance = floatval($user->balance) - $amount;
+						// a payment already made: taken from the balance even if it goes below 0
+						if (dborun("UPDATE accounts SET balance = balance - :amount WHERE id=$uid", array(':amount' => $amount)))
 							dborun("UPDATE balanceuser SET balance = (balance - $amount) WHERE userid=$uid AND time>=$time");
-							$user->save();
-						}
 						$match = true;
 						$time = date('Y-m-d D M j H:i:s Y', $time);
 						echo "extra user tx $txid $time $amount $symbol\n";

@@ -26,23 +26,26 @@ function BackendClearEarnings($coinid = NULL)
             continue;
         }
 
-        $earning->status = 2; // cleared
-        $earning->price  = $coin->price;
-        $earning->save();
-
         //         $refcoin = getdbo('db_coins', $user->coinid);
         //         if($refcoin && $refcoin->price<=0) continue;
         //         $value = $earning->amount * $coin->price / ($refcoin? $refcoin->price: 1);
 
-        $value = yaamp_convert_amount_user($coin, $earning->amount, $user);
+        $value  = yaamp_convert_amount_user($coin, $earning->amount, $user);
+        $credit = !($user->coinid == 6 && !YAAMP_ALLOW_EXCHANGE);
 
-        if ($user->coinid == 6 && !YAAMP_ALLOW_EXCHANGE)
-            continue;
+        // cleared once: the status change and the credit in one transaction
+        $cleared = dbotransaction(function () use ($earning, $coin, $user, $value, $credit) {
+            if (!dborun("UPDATE earnings SET status=2, price=:price WHERE id=:id AND status=1", array(
+                ':price' => $coin->price,
+                ':id' => $earning->id
+            )))
+                return false;
+            if ($credit)
+                db_accounts::addBalance($user->id, $value);
+            return true;
+        });
 
-        $user->balance += $value;
-        $user->save();
-
-        if ($user->coinid == 6)
+        if ($cleared && $credit && $user->coinid == 6)
             $total_cleared += $value;
     }
 

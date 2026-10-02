@@ -141,8 +141,8 @@ function BackendRentingPayout()
             //    $value = yaamp_convert_amount_user($coin, $earning->amount, $user);
 
             $user->last_earning = time();
-            $user->balance += $value;
             $user->save();
+            db_accounts::addBalance($user->id, $value);
         }
 
         $delay = time() - 5 * 60;
@@ -273,6 +273,10 @@ function BackendUpdateDeposit()
             continue;
         }
 
+        // claimed before the send: an interrupted run never sends it again
+        if (!dborun("UPDATE rentertxs SET tx='sending' WHERE id=:id AND tx='scheduled'", array(':id' => $tx->id)))
+            continue;
+
         debuglog("withdraw send $renter->id $renter->address sendtoaddress($tx->address, $tx->amount)");
         $tx->tx = $remote->sendtoaddress($tx->address, round($tx->amount, 8));
 
@@ -286,7 +290,10 @@ function BackendUpdateDeposit()
         $renter->balance -= $tx->amount + $fees;
         $renter->balance = max($renter->balance, 0);
 
-        dborun("update renters set balance=$renter->balance where id=$renter->id");
+        dborun("update renters set balance=GREATEST(balance-:amount, 0) where id=:id", array(
+            ':amount' => $tx->amount + $fees,
+            ':id' => $renter->id
+        ));
 
         $tx->save();
 

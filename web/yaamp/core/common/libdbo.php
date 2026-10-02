@@ -87,6 +87,23 @@ function dbolist($sql, $params = array())
     return $command->queryAll();
 }
 
+// run $fn in a transaction: committed when it returns a true value, else rolled back
+function dbotransaction($fn)
+{
+    $transaction = app()->db->beginTransaction();
+    try {
+        $res = $fn();
+    } catch (Throwable $e) {
+        $transaction->rollback();
+        throw $e;
+    }
+    if ($res)
+        $transaction->commit();
+    else
+        $transaction->rollback();
+    return $res;
+}
+
 function getdbolistWith($model, $with, $criteria)
 {
     return CActiveRecord::model($model)->with($with)->findAll($criteria);

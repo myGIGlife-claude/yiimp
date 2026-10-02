@@ -787,15 +787,10 @@ class SiteController extends CommonController
             ));
             if (!empty($failed)) {
                 foreach ($failed as $payout) {
-                    $user = getdbo('db_accounts', $payout->account_id);
-                    if ($user) {
-                        $user->balance += floatval($payout->amount);
-                        if ($user->save()) {
-                            $amount_failed += floatval($payout->amount);
-                            $cnt++;
-                        }
+                    if (BackendPayoutRestore($payout)) {
+                        $amount_failed += floatval($payout->amount);
+                        $cnt++;
                     }
-                    $payout->delete();
                 }
                 user()->setFlash('message', "Restored $cnt failed txs to user balances, $amount_failed {$coin->symbol}");
             } else {
@@ -1081,8 +1076,8 @@ class SiteController extends CommonController
         $user = getdbo('db_accounts', getiparam('id'));
         if ($user) {
             $user->is_locked = true;
-            $user->balance   = 0;
             $user->save();
+            dborun("UPDATE accounts SET balance=0 WHERE id=:id", array(':id' => $user->id));
         }
 
         $this->goback();

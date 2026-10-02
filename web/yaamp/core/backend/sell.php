@@ -83,7 +83,8 @@ function sellCoinToExchange($coin)
     //    sleep(1);
 
     $tx = $remote->sendtoaddress($deposit_address, $amount);
-    if (!$tx) {
+    // retry with less only when the wallet refused the first send (a timeout may have sent it)
+    if (!$tx && $remote->rejected()) {
         //    debuglog($remote->error);
 
         if ($coin->symbol == 'DIME')
@@ -99,17 +100,22 @@ function sellCoinToExchange($coin)
         sleep(1);
 
         $tx = $remote->sendtoaddress($deposit_address, $amount);
-        if (!$tx) {
-            debuglog("sending $amount $coin->symbol to $deposit_address");
-            debuglog($remote->error);
-            return;
-        }
     }
 
-    if ($tx) {
-        $market->lastsent = time();
-        $market->save();
+    if (!$tx) {
+        debuglog("sending $amount $coin->symbol to $deposit_address");
+        debuglog($remote->error);
+        if (!$remote->rejected()) {
+            // may have been sent: nothing more is sent to this market before its next trade
+            $market->lastsent = time();
+            $market->save();
+            send_email_alert('sell', "{$coin->symbol} sell tx to check", "sending $amount {$coin->symbol} to $marketname $deposit_address: {$remote->error}\r\nCheck your wallet recent transactions to know if it was sent.");
+        }
+        return;
     }
+
+    $market->lastsent = time();
+    $market->save();
 
     $exchange                 = new db_exchange;
     $exchange->market         = $marketname;
