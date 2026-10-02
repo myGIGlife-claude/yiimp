@@ -44,11 +44,20 @@ function LimitRequest($name, $limit = 1)
     return true;
 }
 
+// wallet addresses (account usernames, renter deposits) are [A-Za-z0-9] only.
+// The stratum only strips quotes and spaces from the usernames, and the pages
+// echo the username found, so nothing else is looked up.
+function isValidAddress($address)
+{
+    return is_string($address) && preg_match('/^[A-Za-z0-9]{1,98}\z/', $address) === 1;
+}
+
 function getuserparam($address)
 {
-    if (empty($address)) return null;
+    if (empty($address) || !is_string($address)) return null;
 
     $address = trim(substr($address, 0, 98));
+    if (!isValidAddress($address)) return null;
     $user = getdbosql('db_accounts', "username=:ad", array(
         ':ad' => $address
     ));
@@ -58,9 +67,10 @@ function getuserparam($address)
 
 function getrenterparam($address)
 {
-    if (empty($address)) return null;
+    if (empty($address) || !is_string($address)) return null;
 
     $address = trim(substr($address, 0, 98));
+    if (!isValidAddress($address)) return null;
     $renter = getdbosql('db_renters', "address=:ad", array(
         ':ad' => $address
     ));

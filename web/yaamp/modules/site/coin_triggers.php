@@ -61,14 +61,14 @@ end;
 $notifications = getdbolist('db_notifications', "idcoin={$coin->id}");
 foreach ($notifications as $rule)
 {
-    if ($rule->enabled) $operations = '<a title="Disable this rule" href="/site/triggerEnable?id=' . $rule->id . '&en=0">disable</a>';
-    else $operations = '<a title="Enable this rule" href="/site/triggerEnable?id=' . $rule->id . '&en=1">enable</a>';
-    $operations .= '&nbsp;<a class="red" title="Remove this market" href="/site/triggerDel?id=' . $rule->id . '">delete</a>';
+    if ($rule->enabled) $operations = '<a data-post title="Disable this rule" href="/site/triggerEnable?id=' . $rule->id . '&en=0">disable</a>';
+    else $operations = '<a data-post title="Enable this rule" href="/site/triggerEnable?id=' . $rule->id . '&en=1">enable</a>';
+    $operations .= '&nbsp;<a data-post class="red" title="Remove this market" href="/site/triggerDel?id=' . $rule->id . '">delete</a>';
 
     if ($rule->lasttriggered && $rule->lasttriggered == $rule->lastchecked)
     {
         $status = '<span class="green">Triggered</span>';
-        $operations = '<a title="Reset trigger" href="/site/triggerReset?id=' . $rule->id . '">reset</a>' . '&nbsp' . $operations;
+        $operations = '<a data-post title="Reset trigger" href="/site/triggerReset?id=' . $rule->id . '">reset</a>' . '&nbsp' . $operations;
     }
     else
     {

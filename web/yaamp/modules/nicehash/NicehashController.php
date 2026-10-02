@@ -3,6 +3,7 @@
 class NicehashController extends CommonController
 {
 	public $defaultAction='index';
+	protected $postActions = array('start', 'stop');
 
 	public function actionIndex()
 	{

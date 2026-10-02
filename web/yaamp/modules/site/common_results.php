@@ -236,7 +236,7 @@ echo '<tr>';
 echo '<th></th>';
 
 foreach ($markets as $market)
-    echo '<th align="right"><a href="/site/runExchange?id=' . $market->id . '">' . $market->name . '</a></th>';
+    echo '<th align="right"><a data-post href="/site/runExchange?id=' . $market->id . '">' . $market->name . '</a></th>';
 
 echo '<th align="right">Total</th>';
 
@@ -410,7 +410,7 @@ foreach ($list as $market) {
     echo '<td>' . $sent . ' ago</td>';
     echo '<td>' . $traded . ' ago</td>';
 
-    echo '<td><a href="/site/clearmarket?id=' . $market->id . '">clear</a></td>';
+    echo '<td><a data-post href="/site/clearmarket?id=' . $market->id . '">clear</a></td>';
     echo '</tr>';
 }
 
@@ -472,8 +472,8 @@ foreach ($orders as $order) {
     echo $bidvalue > 0.01 ? '<td style="font-size: .8em;"><b>' . $bidvalue . '</b></td>' : '<td style="font-size: .8em;">' . $bidvalue . '</td>';
 
     echo '<td>';
-    echo '<a href="/site/cancelorder?id=' . $order->id . '" title="Cancel the order on the exchange!">cancel</a> ';
-    echo '<a href="/site/clearorder?id=' . $order->id . '" title="Clear the order from the DB, NOT FROM THE EXCHANGE!">clear</a> ';
+    echo '<a data-post href="/site/cancelorder?id=' . $order->id . '" title="Cancel the order on the exchange!">cancel</a> ';
+    echo '<a data-post href="/site/clearorder?id=' . $order->id . '" title="Clear the order from the DB, NOT FROM THE EXCHANGE!">clear</a> ';
     //    echo '<a href="/site/sellorder?id='.$order->id.'">sell</a>';
     echo '</td>';
     echo '</tr>';

@@ -90,7 +90,7 @@ foreach ($earnings as $earning)
     echo '<tr class="ssrow">';
     echo "<td>$coinimg</td>";
     echo "<td><b>$coinlink</b>&nbsp;($coin->symbol_show)</td>";
-    echo '<td><b><a href="/?address=' . $user->username . '">' . $user->username . '</a></b></td>';
+    echo '<td><b><a href="/?address=' . urlencode($user->username) . '">' . CHtml::encode($user->username) . '</a></b></td>';
     echo '<td>' . bitcoinvaluetoa($earning->amount) . '</td>';
     echo '<td>' . bitcoinvaluetoa($earning->amount * $earning->price) . '</td>';
     echo '<td>' . $block->height . '</td>';
@@ -98,8 +98,8 @@ foreach ($earnings as $earning)
     echo '<td data="' . $earning->create_time . '">' . "$t1 $t2</td>";
 
     echo '<td class="actions">';
-    echo '<a href="/site/clearearning?id=' . $earning->id . '">clear</a> ';
-    echo '<a class="red" href="/site/deleteearning?id=' . $earning->id . '">delete</a>';
+    echo '<a data-post href="/site/clearearning?id=' . $earning->id . '">clear</a> ';
+    echo '<a data-post class="red" href="/site/deleteearning?id=' . $earning->id . '">delete</a>';
     echo '</td>';
 
     //	echo "<td style='font-size: .7em'>$earning->tx</td>";

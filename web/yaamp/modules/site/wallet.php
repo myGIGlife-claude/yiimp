@@ -14,7 +14,7 @@ foreach($raw_recents as $addr) {
 }
 
 $address = getparam('address');
-if (!empty($address) && preg_match('/[^A-Za-z0-9]/', $address)) {
+if (!empty($address) && !isValidAddress($address)) {
 	// Just to make happy XSS seekers who can hack their own browser html...
 	die;
 }

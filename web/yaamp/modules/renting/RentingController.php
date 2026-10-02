@@ -13,21 +13,14 @@ class RentingController extends CommonController
         );
     }
 
-    // renter actions changing state through plain links (CSRF)
+    protected $postActions = array('orderdelete', 'resetspent', 'jobs_start', 'jobs_stop', 'jobs_startall', 'jobs_stopall', 'withdraw', 'ordersave');
+
     protected function beforeAction($action)
     {
         if (!parent::beforeAction($action)) return false;
 
-        $protected = array('orderdelete', 'resetspent', 'jobs_start', 'jobs_stop', 'jobs_startall', 'jobs_stopall', 'withdraw', 'ordersave');
-        if (in_array(strtolower($action->id), $protected) && $this->isCrossSiteRequest())
-        {
-            debuglog("renting: cross-site request refused {$action->id} from ".arraySafeVal($_SERVER, 'REMOTE_ADDR'));
-            $this->redirect('/renting');
-            return false;
-        }
-
-        // the renter forms carry the session token (the headers above are not always sent)
-        $forms = array('index', 'login', 'create', 'withdraw', 'ordersave');
+        // the renter forms carry the session token (the cross-site headers are not always sent)
+        $forms = array('index', 'login', 'create');
         if (app()->request->isPostRequest && in_array(strtolower($action->id), $forms) && !$this->hasValidCsrfToken())
         {
             debuglog("renting: POST without token refused {$action->id} from ".arraySafeVal($_SERVER, 'REMOTE_ADDR'));
@@ -522,12 +515,6 @@ end;
         if (!$renter)
         {
             $this->render('login');
-            return;
-        }
-
-        if (!app()->request->isPostRequest)
-        {
-            $this->redirect("/renting");
             return;
         }
 

@@ -4,6 +4,10 @@ class CommonController extends CController
     public $memcache;
     public $t1;
 
+    // actions changing state (lowercase ids): POST with the session token
+    // only (CSRF), their links are sent by yaampPost() (ui/main.php)
+    protected $postActions = array();
+
     // read-only via getAdmin()
     private $admin = false;
     protected function getAdmin()
@@ -88,6 +92,17 @@ class CommonController extends CController
             throw new CHttpException(403, 'Cross-site request refused.');
         }
 
+        if (php_sapi_name() != 'cli' && in_array(strtolower($action->id), $this->postActions))
+        {
+            if (!app()->request->isPostRequest)
+            {
+                header('Allow: POST');
+                throw new CHttpException(405, 'POST required.');
+            }
+            if (!$this->hasValidCsrfToken())
+                throw new CHttpException(400, 'Invalid session token.');
+        }
+
         if (user()
             ->getState('yaamp_admin'))
         {
@@ -99,8 +114,8 @@ class CommonController extends CController
                 debuglog("admin attempt from $client_ip");
                 $this->admin = false;
             }
-            // CSRF: admin actions are plain links, never grant them to a
-            // request initiated by another site (the session is kept).
+            // CSRF: never grant the admin rights to a request initiated
+            // by another site (the session is kept).
             else if ($this->isCrossSiteRequest())
             {
                 debuglog("admin rights ignored for cross-site request {$this->id}/{$action->id} from $client_ip");
