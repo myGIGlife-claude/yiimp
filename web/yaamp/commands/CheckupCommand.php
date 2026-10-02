@@ -246,7 +246,7 @@ class CheckupCommand extends CConsoleCommand
 				if ($user->coinid != 6)
 					continue;
 
-				$user->balance = 0;
+				dborun("UPDATE accounts SET balance=0 WHERE id=".$user->id);
 				dborun("DELETE FROM balanceuser WHERE userid=".$user->id);
 				dborun("DELETE FROM hashuser WHERE userid=".$user->id);
 				dborun("DELETE FROM shares WHERE userid=".$user->id);

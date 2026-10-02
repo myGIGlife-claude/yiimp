@@ -55,6 +55,17 @@ class WalletRPC {
 		}
 	}
 
+	// the wallet answered the last call with an error, so a send that failed this way was not
+	// made and can be redone. False after a timeout or a bad answer, and for the errors given
+	// once the transaction is in the wallet (commit failed, rejected): it may still be sent
+	function rejected()
+	{
+		$rpc = $this->type == 'CryptoNote' ? $this->rpc_wallet : $this->rpc;
+		if ($this->type == 'Ethereum' || !is_array($rpc->response) || empty($rpc->response['error']))
+			return false;
+		return !preg_match('/commit|reject/i', (string) $this->error);
+	}
+
 	function __call($method, $params)
 	{
 		if (stripos($method, "dump") !== false || stripos($method, "backupwallet") !== false) {

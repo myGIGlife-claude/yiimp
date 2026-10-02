@@ -25,6 +25,7 @@ function BackendUsersUpdate()
                 $b = $remote->validateaddress($user->username);
                 if (arraySafeVal($b, 'isvalid')) {
                     $old_balance = $user->balance;
+                    $ratio       = 1;
                     if ($user->balance > 0) {
                         $coinref = getdbo('db_coins', $user->coinid);
                         if (!$coinref) {
@@ -34,13 +35,19 @@ function BackendUsersUpdate()
                                 continue;
                         }
 
-                        $user->balance = $user->balance * $coinref->price / $coin->price;
+                        // atomic, with the coin change
+                        $ratio = $coinref->price / $coin->price;
+                        dborun("UPDATE accounts SET balance = balance * :ratio, coinid=:coinid WHERE id=:id", array(
+                            ':ratio' => $ratio,
+                            ':coinid' => $coin->id,
+                            ':id' => $user->id
+                        ));
                     }
 
                     $user->coinid = $coin->id;
                     $user->save();
 
-                    debuglog("{$user->username} converted to {$user->balance} {$coin->symbol} (old: $old_balance)");
+                    debuglog("{$user->username} converted to " . ($old_balance * $ratio) . " {$coin->symbol} (old: $old_balance)");
                     continue;
                 }
             }
@@ -59,7 +66,7 @@ function BackendUsersUpdate()
 
             if ($old_usercoinid && $old_usercoinid != $coin->id) {
                 debuglog("{$user->username} set to {$coin->symbol}, balance {$user->balance} reset to 0");
-                $user->balance = 0;
+                dborun("UPDATE accounts SET balance=0 WHERE id=:id", array(':id' => $user->id));
             }
             $user->coinid = $coin->id;
             break;
