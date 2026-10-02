@@ -460,15 +460,21 @@ End-to-end stratum tests:
 Public GitHub repos can be cloned read-only through this environment's git
 proxy for reference code, even when they are not in the session's repo scope.
 
-## 8. Known issues and loose ends (not fixed)
+## 8. Known issues and loose ends
 
-- `coind.cpp`: for non-DCR coins, a failed `validateaddress` can set the pool wallet to `"1.0"`. This is a generic, old bug.
-- The installer sed anchors `YII MINING POOLS` (site/index.php) and `Notes` (db_coinsModel.php) no longer exist in YiiMP, so those two installer seds do nothing.
-- The multi-server installer never auto-starts per-algo stratums at boot; only per-coin stratums via `addport` are started. Existing behaviour.
-- Memory: the single-server boot list starts 81 stratums at about 14 MB each.
-- Research findings for the owner:
-  - The `yespower` algo already uses the Sugarchain personalization, so it equals `yespowerSUGAR`.
-  - IsotopeC's ticker is ISO, not IC.
-  - ADVC needs its 10% dev/charity outputs, which are not handled.
-- The Resistance chain only works in `claude/phase2-equihash`, via the Equihash protocol family.
-- `blocks.php` has an old DCR `$blockext` reference that an agent reported; it could not be found. Worth a look.
+Security round 3 and the coin loose ends are merged (yiimp #18 to #21, installers #7). Nothing below was run against a daemon, database or regtest yet; the first real test is still open.
+
+- Done in round 3:
+  - Payouts: a per-coin MySQL lock, the payout row and balance debit claimed in one transaction before the wallet call, refund only on a clean wallet refusal, claim kept and admin alerted on an unclear failure. Automatic resend of tx-less payouts was removed. Balance credits and debits are atomic UPDATEs.
+  - Stratum: client lifetime races (only a client's own thread marks it deleted), job locking, per-IP cap `STRATUM:max_cons_per_ip` (default 0 = off), strict login-address check, `coind.cpp` no longer mines to `"1.0"` (an invalid wallet with no backup address stops that coin with an ERROR line).
+  - Web: state-changing admin actions are POST-only with the session token (`$postActions`, `yaampPost()`), shared `isValidAddress()`, escaped usernames in admin lists.
+  - Coins: ADVC dev output through the template `developer` field; the Lyncoin aux target now falls back to `_target` and the aux tree is capped at MAX_AUXS; KCN and LCN put the segwit commitment output last. IsotopeC ticker is ISO.
+  - Installers: the two dead sed anchors are gone; the multi-server installer starts per-algo stratums at boot (`stratum boot`, one per second, stops below 256 MB free; newer algos such as the yespower family and ghostrider still need `stratum start <algo>`).
+- Still open:
+  - `yespower` already uses the Sugarchain personalization, so it equals `yespowerSUGAR`; merging them would change algo names, ports and DB rows, so it was left.
+  - The per-login `validateaddress` check stays off (removed upstream in 2020; it would lock out users whose account points at a coin on another algo).
+  - PROXY headers are not parsed for IPv6 (`workers.ip` is `varchar(32)`).
+  - Accounts whose username is not alphanumeric cannot be blocked from the wallet link (BAN by id works).
+  - The manual admin tools (`redotx`, bookmark and market sends) were not changed.
+  - Memory: the single-server boot list starts 81 stratums at about 14 MB each.
+  - The Resistance chain only works in `claude/phase2-equihash`, via the Equihash protocol family.
