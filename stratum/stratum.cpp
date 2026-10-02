@@ -39,6 +39,9 @@ double g_stratum_max_diff;
 
 int g_stratum_max_ttf;
 int g_stratum_max_cons = 5000;
+// simultaneous connections per source ip (IPv6: per /64), 0 = no limit. Off by default:
+// a NAT'd farm or a proxy (without the PROXY protocol) shows all its rigs on one ip
+int g_stratum_max_cons_per_ip = 0;
 int g_client_threads = 0; // open client connections (threads)
 bool g_stratum_reconnect;
 bool g_stratum_renting;
@@ -350,6 +353,7 @@ int main(int argc, char **argv)
 	g_stratum_nicehash_max_diff = iniparser_getdouble(ini, "STRATUM:nicehash_diff_max", g_stratum_nicehash_difficulty*8192);
 
 	g_stratum_max_cons = iniparser_getint(ini, "STRATUM:max_cons", 5000);
+	g_stratum_max_cons_per_ip = iniparser_getint(ini, "STRATUM:max_cons_per_ip", 0);
 	g_stratum_max_ttf = iniparser_getint(ini, "STRATUM:max_ttf", 0x70000000);
 	g_stratum_reconnect = iniparser_getint(ini, "STRATUM:reconnect", true);
 	g_stratum_renting = iniparser_getint(ini, "STRATUM:renting", true);

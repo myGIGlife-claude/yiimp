@@ -91,6 +91,7 @@ extern double g_stratum_nicehash_min_diff;
 extern double g_stratum_nicehash_max_diff;
 
 extern int g_stratum_max_cons;
+extern int g_stratum_max_cons_per_ip;
 extern int g_client_threads;
 extern int g_stratum_max_ttf;
 extern bool g_stratum_reconnect;

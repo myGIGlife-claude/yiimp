@@ -249,18 +249,18 @@ bool client_authorize(YAAMP_CLIENT *client, json_value *json_params)
 	else
 	{
 		snprintf(client->username, sizeof(client->username), "%s", username);
-
 		db_check_user_input(client->username);
-		int len = strlen(client->username);
-		if (!len)
-			return false;
 
+		// address[.worker]
 		char *sep = strpbrk(client->username, ".,;:");
 		if (sep) {
 			*sep = '\0';
 			snprintf(client->worker, sizeof(client->worker), "%s", sep+1);
-			if (strlen(client->username) > MAX_ADDRESS_LEN) return false;
-		} else if (len > MAX_ADDRESS_LEN) {
+		}
+
+		if (!is_valid_username(client->username)) {
+			clientlog(client, "authorize, bad address");
+			client_send_error(client, 20, "Invalid username");
 			return false;
 		}
 	}
@@ -350,15 +350,22 @@ bool client_update_block(YAAMP_CLIENT *client, json_value *json_params)
 	block_confirm(coind->id, hash);
 
 	coind_create_job(coind);
+	bool isaux = coind->isaux;
 	object_unlock(coind);
 
-	if(coind->isaux) for(CLI li = g_list_coind.first; li; li = li->next)
+	if(isaux)
 	{
-		YAAMP_COIND *coind = (YAAMP_COIND *)li->data;
-		if(!coind_can_mine(coind)) continue;
-		if(coind->pos) continue;
+		// locked: the main thread adds and prunes the coins
+		g_list_coind.Enter();
+		for(CLI li = g_list_coind.first; li; li = li->next)
+		{
+			YAAMP_COIND *coind = (YAAMP_COIND *)li->data;
+			if(!coind_can_mine(coind)) continue;
+			if(coind->pos) continue;
 
-		coind_create_job(coind);
+			coind_create_job(coind);
+		}
+		g_list_coind.Leave();
 	}
 
 	job_signal();
@@ -559,6 +566,16 @@ void *client_thread(void *p)
 	client->sock = socket_initialize((int)(long)p);
 //	client->source = source_init(client);
 
+	// per source ip cap, on the real ip (PROXY protocol), released at the end of the thread
+	if(!ip_connection_add(client->sock->ip, g_stratum_max_cons_per_ip))
+	{
+		if (g_debuglog_client) debuglog("%s: too many connections\n", client->sock->ip);
+		socket_close(client->sock);
+		delete client;
+		__sync_fetch_and_sub(&g_client_threads, 1);
+		pthread_exit(NULL);
+	}
+
 	client->shares_per_minute = YAAMP_SHAREPERSEC;
 	client->last_submit_time = current_timestamp();
 
@@ -700,6 +717,10 @@ void *client_thread(void *p)
 	if(client->sock->sock >= 0)
 		shutdown(client->sock->sock, SHUT_RDWR);
 
+	ip_connection_remove(client->sock->ip);
+
+	// only this thread deletes its client (others shutdown the socket to end it):
+	// once marked, object_prune may free it at any time
 	if(g_list_client.Find(client))
 	{
 		if(client->workerid && !client->reconnecting)

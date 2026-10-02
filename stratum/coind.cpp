@@ -107,8 +107,10 @@ bool coind_validate_user_address(YAAMP_COIND *coind, char* const address)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-bool coind_validate_address(YAAMP_COIND *coind)
+// chain_valid (optional): the address is valid for the chain, even if not in the daemon wallet
+static bool coind_validate_address(YAAMP_COIND *coind, bool *chain_valid = NULL)
 {
+	if(chain_valid) *chain_valid = false;
 	if(!coind->wallet[0]) return false;
 
 	char params[YAAMP_SMALLBUFSIZE];
@@ -130,7 +132,9 @@ bool coind_validate_address(YAAMP_COIND *coind)
 	{
 		stratumlog("%s wallet is using getaddressinfo.\n", coind->name);
 		getaddressinfo = true;
+		json_value_free(json);
 		json = rpc_call(&coind->rpc, "getaddressinfo", params);
+		if(!json) return false;
 
 		json_result = json_get_object(json, "result");
 		if(!json_result)
@@ -142,6 +146,7 @@ bool coind_validate_address(YAAMP_COIND *coind)
 
 	bool isvalid = getaddressinfo || json_get_bool(json_result, "isvalid");
 	if(!isvalid) stratumlog("%s wallet %s is not valid.\n", coind->name, coind->wallet);
+	if(chain_valid) *chain_valid = isvalid;
 
 	bool ismine = json_get_bool(json_result, "ismine");
 	if(!ismine) stratumlog("%s wallet %s is not mine.\n", coind->name, coind->wallet);
@@ -174,67 +179,70 @@ bool coind_validate_address(YAAMP_COIND *coind)
 	return isvalid && ismine;
 }
 
-void coind_init(YAAMP_COIND *coind)
+// false: no valid pool wallet, the coin must not be mined (its coinbase would pay to
+// an invalid address, the block rewards would be lost)
+bool coind_init(YAAMP_COIND *coind)
 {
-	char params[YAAMP_SMALLBUFSIZE];
-	char account[YAAMP_SMALLBUFSIZE];
-
 	yaamp_create_mutex(&coind->mutex);
 
 	// daemons that are not Bitcoin derived (protocol.h)
 	if(g_protocol && g_protocol->coind_init) {
 		g_protocol->coind_init(coind);
-		return;
+		return true;
 	}
 
-	strcpy(account, coind->account);
-	if(!strcmp(coind->rpcencoding, "DCR")) {
+	if(!strcmp(coind->rpcencoding, "DCR"))
 		coind->usegetwork = true;
-		//sprintf(account, "default");
-	}
 
-	bool valid = coind_validate_address(coind);
-	if(valid) return;
+	bool chain_valid = false;
+	bool valid = coind_validate_address(coind, &chain_valid);
+	if(valid) return true;
 
 	if(coind->usegetwork) {
 		// DCR: the block reward goes to the dcrd --miningaddr, the stratum
 		// does not build any coinbase, keep the configured address
 		stratumlog("%s: set dcrd --miningaddr to the pool wallet %s\n", coind->symbol, coind->wallet);
-		return;
+		return true;
 	}
 
-	sprintf(params, "[\"legacy\"]");
-
-	json_value *json = rpc_call(&coind->rpc, "getrawchangeaddress", params);
-	if(!json)
+	// the configured wallet is not one of the daemon: use a new address of its wallet
+	char configured[sizeof(coind->wallet)];
+	snprintf(configured, sizeof(configured), "%s", coind->wallet);
+	const char *address = NULL;
+	json_value *json = rpc_call(&coind->rpc, "getrawchangeaddress", "[\"legacy\"]");
+	if(json) address = json_get_string(json, "result");
+	if(!address)
 	{
-		json = rpc_call(&coind->rpc, "getaddressesbyaccount", params);
-		if (json && json_is_array(json) && json->u.object.length) {
-			debuglog("is array...");
-			if (json->u.object.values[0].value->type == json_string)
-				json = json->u.object.values[0].value;
-		}
-		if (!json) {
-			stratumlog("ERROR getaccountaddress %s\n", coind->name);
-			return;
-		}
+		if(json) json_value_free(json);
+		json = rpc_call(&coind->rpc, "getaddressesbyaccount", "[\"legacy\"]");
+		json_value *list = json ? json_get_array(json, "result") : NULL;
+		if(json_is_array(list) && list->u.array.length)
+			address = json_string_value(list->u.array.values[0]);
 	}
 
-	if (json->u.object.values[0].value->type == json_string) {
-		strcpy(coind->wallet, json->u.object.values[0].value->u.string.ptr);
+	if(address)
+	{
+		snprintf(coind->wallet, sizeof(coind->wallet), "%s", address);
+		valid = coind_validate_address(coind);
 	}
-	else {
-		strcpy(coind->wallet, "");
-		stratumlog("ERROR getaccountaddress %s\n", coind->name);
+	if(json) json_value_free(json);
+
+	if(!valid && chain_valid) {
+		// as before: mine to the configured address, valid but not in the daemon wallet
+		snprintf(coind->wallet, sizeof(coind->wallet), "%s", configured);
+		coind_validate_address(coind); // its script pubkey
+		stratumlog("WARNING %s: pool wallet %s is not in the daemon wallet\n", coind->symbol, coind->wallet);
+		return true;
 	}
 
-	json_value_free(json);
-
-	coind_validate_address(coind);
-	if (strlen(coind->wallet)) {
-		debuglog(">>>>>>>>>>>>>>>>>>>> using wallet %s %s\n",
-			coind->wallet, coind->account);
+	if(!valid) {
+		stratumlog("ERROR %s: pool wallet %s is not valid and the daemon gave no address, coin not mined\n",
+			coind->symbol, configured);
+		return false;
 	}
+
+	debuglog(">>>>>>>>>>>>>>>>>>>> using wallet %s %s\n", coind->wallet, coind->account);
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

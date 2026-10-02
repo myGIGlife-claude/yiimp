@@ -60,7 +60,7 @@ void object_prune(CommonList *list, YAAMP_OBJECT_DELETE_FUNC deletefunc)
 		}
 
 		else if(object->lock_count && object->unlock)
-			object->lock_count--;
+			object_unlock(object);
 	}
 
 	list->Leave();
@@ -88,7 +88,7 @@ void object_prune_debug(CommonList *list, YAAMP_OBJECT_DELETE_FUNC deletefunc)
 		}
 
 		else if(object->lock_count && object->unlock)
-			object->lock_count--;
+			object_unlock(object);
 	}
 
 	if (list->count)

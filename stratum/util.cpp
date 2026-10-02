@@ -2,6 +2,7 @@
 #include "stratum.h"
 #include <math.h>
 #include <limits.h>
+#include <map>
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -438,6 +439,63 @@ bool ishexa(char *hex, int len)
 		if (!isxdigit(hex[i])) return false;
 	}
 	return true;
+}
+
+// a miner login address (base58, bech32, hex...): letters and digits only, it goes
+// to the SQL queries, the daemon rpc (json) and the logs
+bool is_valid_username(const char *username)
+{
+	size_t len = strlen(username);
+	if (!len || len > MAX_ADDRESS_LEN) return false;
+	for (size_t i = 0; i < len; i++) {
+		unsigned char c = username[i];
+		if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')))
+			return false;
+	}
+	return true;
+}
+
+// open connections per source ip (STRATUM:max_cons_per_ip). IPv6 addresses are counted
+// per /64 (one host usually owns the whole /64), IPv4 mapped ones as IPv4.
+static map<string, int> g_ip_connections;
+static pthread_mutex_t g_ip_connections_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static string ip_connection_key(const char *ip)
+{
+	struct in6_addr a6;
+	if (!strchr(ip, ':') || inet_pton(AF_INET6, ip, &a6) != 1) return ip;
+
+	char key[INET6_ADDRSTRLEN];
+	if (IN6_IS_ADDR_V4MAPPED(&a6))
+		inet_ntop(AF_INET, &a6.s6_addr[12], key, sizeof(key));
+	else {
+		memset(&a6.s6_addr[8], 0, 8);
+		inet_ntop(AF_INET6, &a6, key, sizeof(key));
+	}
+	return key;
+}
+
+// counts the connection, false (not counted) if the ip already has max (0 = no limit)
+bool ip_connection_add(const char *ip, int max)
+{
+	string key = ip_connection_key(ip);
+	pthread_mutex_lock(&g_ip_connections_mutex);
+	int &count = g_ip_connections[key];
+	bool ok = max <= 0 || count < max;
+	if (ok) count++;
+	pthread_mutex_unlock(&g_ip_connections_mutex);
+	return ok;
+}
+
+// once per connection counted by ip_connection_add
+void ip_connection_remove(const char *ip)
+{
+	string key = ip_connection_key(ip);
+	pthread_mutex_lock(&g_ip_connections_mutex);
+	map<string, int>::iterator it = g_ip_connections.find(key);
+	if (it != g_ip_connections.end() && --it->second <= 0)
+		g_ip_connections.erase(it);
+	pthread_mutex_unlock(&g_ip_connections_mutex);
 }
 
 unsigned char binvalue(const char v)
