@@ -193,7 +193,7 @@ bool protocol_submit_block(YAAMP_CLIENT *client, YAAMP_JOB *job, const char *hea
 	free(block_hex);
 
 	uint64_t coin_target = decode_compact(templ->nbits);
-	if (templ->nbits && !coin_target) coin_target = 0xFFFF000000000000ULL;
+	if (!coin_target) coin_target = 0xFFFF000000000000ULL;
 
 	if (b) {
 		protocol_block_accepted(client, job, target_to_diff(coin_target), diff_user, blockid, powhash);

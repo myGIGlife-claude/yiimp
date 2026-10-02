@@ -112,7 +112,7 @@ static void client_do_submit(YAAMP_CLIENT *client, YAAMP_JOB *job, YAAMP_JOB_VAL
 
 	uint64_t hash_int = get_hash_difficulty(submitvalues->hash_bin);
 	uint64_t coin_target = decode_compact(templ->nbits);
-	if (templ->nbits && !coin_target) coin_target = 0xFFFF000000000000ULL;
+	if (!coin_target) coin_target = 0xFFFF000000000000ULL;
 
 	int block_size = YAAMP_SMALLBUFSIZE;
 	vector<string>::const_iterator i;
@@ -195,7 +195,7 @@ static void client_do_submit(YAAMP_CLIENT *client, YAAMP_JOB *job, YAAMP_JOB_VAL
 		memset(block_hex, 0, block_size);
 		sprintf(block_hex, "%s%s%s", submitvalues->header_be, count_hex, submitvalues->coinbase);
 
-		if (g_current_algo->name && !strcmp("jha", g_current_algo->name)) {
+		if (!strcmp("jha", g_current_algo->name)) {
 			// block header of 88 bytes
 			sprintf(block_hex, "%s8400000008000000%s%s", submitvalues->header_be, count_hex, submitvalues->coinbase);
 		}

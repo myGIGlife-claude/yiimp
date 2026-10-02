@@ -787,7 +787,7 @@ class SiteController extends CommonController
             ));
             if (!empty($failed)) {
                 foreach ($failed as $payout) {
-                    if (BackendPayoutRestore($payout)) {
+                    if (BackendPayoutCancel($payout)) {
                         $amount_failed += floatval($payout->amount);
                         $cnt++;
                     }

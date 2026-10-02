@@ -92,6 +92,12 @@ class MarketController extends CommonController
         $tx = $remote->sendtoaddress($market->deposit_address, $amount);
         if (!$tx)
         {
+            if (!$remote->rejected())
+            {
+                // may have been sent (timeout): no automatic sell to this market before its next trade
+                $market->lastsent = time();
+                $market->save();
+            }
             user()->setFlash('error', $remote->error);
             $this->redirect(array(
                 'site/coin',

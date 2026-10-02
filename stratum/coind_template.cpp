@@ -406,7 +406,7 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 		ser_string_be2(sc_utxo, &templ->extradata_be[64], 8);
 	}
 
-	if (!templ->height || !templ->nbits || !strlen(templ->prevhash_hex)) {
+	if (!templ->height || !templ->nbits[0] || !templ->prevhash_hex[0]) {
 		stratumlog("%s warning, gbt incorrect : version=%s height=%d value=%lld bits=%s time=%s prev=%s\n",
 			coind->symbol, templ->version, templ->height, (long long) templ->value, templ->nbits, templ->ntime, templ->prevhash_hex);
 	}
@@ -414,7 +414,7 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 	// temporary hack, until wallet is fixed...
 	if (!strcmp(coind->symbol, "MBL")) { // MBL: chainid in version
 		unsigned int nVersion = (unsigned int)json_get_int(json_result, "version");
-		if (nVersion & 0xFFFF0000UL == 0) {
+		if ((nVersion & 0xFFFF0000UL) == 0) {
 			nVersion |= (0x16UL << 16);
 			debuglog("%s version %s >> %08x\n", coind->symbol, templ->version, nVersion);
 		}
@@ -640,7 +640,7 @@ bool coind_create_job(YAAMP_COIND *coind, bool force)
 	}
 
 	uint64_t coin_target = decode_compact(templ->nbits);
-	if (templ->nbits && !coin_target) coin_target = 0xFFFF000000000000ULL; // under decode_compact min diff
+	if (!coin_target) coin_target = 0xFFFF000000000000ULL; // under decode_compact min diff
 	coind->difficulty = target_to_diff(coin_target);
 	if (templ->proto_netdiff > 0) coind->difficulty = templ->proto_netdiff; // in the units of the daemon
 

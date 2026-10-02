@@ -297,26 +297,40 @@ class PayoutCommand extends CConsoleCommand
 
 		$relayfee = 0.0001;
 
-		$dests = array(); $total = 0.;
+		$dests = array(); $paid = array(); $total = 0.;
 		foreach ($payouts as $payout) {
 			$user = getdbo('db_accounts', $payout->account_id);
 			if (!$user || $user->coinid != $coin->id) continue;
 			if (floatval($payout->amount) < $relayfee) continue; // dust if < relayfee
 			$dests[$user->username] = floatval($payout->amount);
 			$total += floatval($payout->amount);
+			$paid[$payout->id] = true;
 		}
 
 		echo "$total {$coin->symbol} to pay...\n";
 
+		// claimed before the send: a second run finds no payouts with this txid
+		$res = dborun("UPDATE payouts SET completed=0, tx='orphaned', memoid='redo' WHERE tx=:txid", array(':txid'=>$txid));
+		if ($res != count($payouts))
+			die("payouts of $txid changed, check them\n");
+		echo "payouts marked as 'orphaned': $res\n";
+
 		$nbnew = 0;
 		$remote = new WalletRPC($coin);
 		$res = $remote->sendmany((string) $coin->account, $dests);
-		if (!$res) var_dump($remote->error);
-		else {
+		if (!$res) {
+			var_dump($remote->error);
+			if ($remote->rejected()) {
+				// not sent: the payouts get their txid back
+				foreach ($payouts as $payout) $payout->save();
+				echo "payouts of $txid restored\n";
+			} else
+				echo "may have been sent: check the wallet, the payouts of $txid stay 'orphaned'\n";
+		} else {
 			$new_txid = $res;
 			echo "txid: $new_txid\n";
 			foreach ($payouts as $payout) {
-				if (floatval($payout->amount) < $relayfee) continue;
+				if (empty($paid[$payout->id])) continue; // not in the new tx
 				$p = new db_payouts;
 				$p->time = time();
 				$p->idcoin = $coin->id;
@@ -328,10 +342,6 @@ class PayoutCommand extends CConsoleCommand
 				$nbnew += $p->insert();
 			}
 			echo "payouts rows added: $nbnew\n";
-			if ($nbnew == count($payouts)) {
-				$res = dborun("UPDATE payouts SET completed=0, tx='orphaned', memoid='redo' WHERE tx=:txid", array(':txid'=>$txid));
-				echo "payouts marked as 'orphaned': $res\n";
-			}
 		}
 		return $nbnew;
 	}

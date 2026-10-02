@@ -1,9 +1,6 @@
 
 #include "stratum.h"
 
-//client->difficulty_remote = 0;
-//debuglog(" returning %x, %s, %s\n", job->id, client->sock->ip, #condition); \
-
 #define RETURN_ON_CONDITION(condition, ret) \
 	if(condition) \
 	{ \
