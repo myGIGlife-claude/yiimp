@@ -20,9 +20,10 @@ void coind_aux_build_auxs(YAAMP_JOB_TEMPLATE *templ)
 
 	if(!len) return;
 
-	for(int i=0; i<MAX_AUXS; i++)
+	// the chain merkle tree must fit auxs[] (and the one byte size in coinbase_aux)
+	for(int i=0; (1 << i) <= MAX_AUXS; i++)
 	{
-		templ->auxs_size = pow(2, i);
+		templ->auxs_size = 1 << i;
 		if(templ->auxs_size<len) continue;
 
 		bool done = true;
@@ -45,8 +46,12 @@ void coind_aux_build_auxs(YAAMP_JOB_TEMPLATE *templ)
 			templ->auxs[pos] = &coind->aux;
 		}
 
-		if(done) break;
+		if(done) return;
 	}
+
+	// no collision free layout: mine without aux chains
+	templ->auxs_size = 0;
+	memset(templ->auxs, 0, sizeof(templ->auxs));
 }
 
 vector<string> coind_aux_hashlist(YAAMP_COIND_AUX **auxs, int size)

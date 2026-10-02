@@ -232,7 +232,7 @@ YAAMP_ALGO g_algos[] =
 	{"yespower", yespower_hash, 0x10000, 0, 0},
 	{"yespowerADVC", yespowerADVC_hash, 0x10000, 0, 0}, // AdventureCoin (ADVC)
 	{"yespowerARWN", yespowerARWN_hash, 0x10000, 0, 0}, // Arowanacoin (ARWN)
-	{"yespowerIC", yespowerIC_hash, 0x10000, 0, 0}, // IsotopeC (IC)
+	{"yespowerIC", yespowerIC_hash, 0x10000, 0, 0}, // IsotopeC (ISO)
 	{"yespowerLITB", yespowerLITB_hash, 0x10000, 0, 0}, // LightBit (LITB)
 	{"yespowerLTNCG", yespowerLTNCG_hash, 0x10000, 0, 0}, // Crionic (CRNC), LightningCash Gold
 	{"yespowerMGPC", yespowerMGPC_hash, 0x10000, 0, 0}, // Magpiecoin (MGPC)

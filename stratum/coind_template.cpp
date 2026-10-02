@@ -22,7 +22,9 @@ void coind_getauxblock(YAAMP_COIND *coind)
 //	coind->aux.height = coind->height+1;
 	coind->aux.chainid = json_get_int(json_result, "chainid");
 
+	// newer Namecoin based daemons (Lyncoin) only give "_target", the same little endian hex
 	const char *p = json_get_string(json_result, "target");
+	if(!p) p = json_get_string(json_result, "_target");
 	if(p) snprintf(coind->aux.target, sizeof(coind->aux.target), "%s", p);
 
 	p = json_get_string(json_result, "hash");
