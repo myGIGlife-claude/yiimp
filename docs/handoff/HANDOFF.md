@@ -462,7 +462,7 @@ proxy for reference code, even when they are not in the session's repo scope.
 
 ## 8. Known issues and loose ends
 
-Security round 3 and the coin loose ends are merged (yiimp #18 to #21, installers #7). Nothing below was run against a daemon, database or regtest yet; the first real test is still open.
+Security round 3 and the coin loose ends are merged (yiimp #18 to #24, installers #7 and #8). Nothing below was run against a daemon, database or regtest yet; the first real test is still open.
 
 - Done in round 3:
   - Payouts: a per-coin MySQL lock, the payout row and balance debit claimed in one transaction before the wallet call, refund only on a clean wallet refusal, claim kept and admin alerted on an unclear failure. Automatic resend of tx-less payouts was removed. Balance credits and debits are atomic UPDATEs.
@@ -470,7 +470,10 @@ Security round 3 and the coin loose ends are merged (yiimp #18 to #21, installer
   - Web: state-changing admin actions are POST-only with the session token (`$postActions`, `yaampPost()`), shared `isValidAddress()`, escaped usernames in admin lists.
   - Coins: ADVC dev output through the template `developer` field; the Lyncoin aux target now falls back to `_target` and the aux tree is capped at MAX_AUXS; KCN and LCN put the segwit commitment output last. IsotopeC ticker is ISO.
   - Installers: the two dead sed anchors are gone; the multi-server installer starts per-algo stratums at boot (`stratum boot`, one per second, stops below 256 MB free; newer algos such as the yespower family and ghostrider still need `stratum start <algo>`).
+  - Wallet sends: every send path (payment run, bookmark, sellto, sell cron, renting withdraw, redotx, shift send) takes the per-coin lock and claims before sending through `BackendWalletSend` / `BackendWalletSendOnce` in `payment.php`. A refusal releases the claim; a timeout keeps it until an admin clicks "clear". Renter balances are atomic updates. A required charity/dev/founder output with an empty or invalid address now drops the template (one ERROR per coin per hour). Renting create is POST-only; the external rental API stays GET behind one shared key check and rate limit.
+  - Review fixes: the MBL chain-id `&`/`==` precedence bug in `coind_template.cpp` (the fix never ran) and an always-true array-address test were corrected.
 - Still open:
+  - Rental job charges floor at 0 (hash power was already delivered); the symbol2 transfer has no claim (the amount is read from the wallet each run); the old-style masternode payee is unchanged.
   - `yespower` already uses the Sugarchain personalization, so it equals `yespowerSUGAR`; merging them would change algo names, ports and DB rows, so it was left.
   - The per-login `validateaddress` check stays off (removed upstream in 2020; it would lock out users whose account points at a coin on another algo).
   - PROXY headers are not parsed for IPv6 (`workers.ip` is `varchar(32)`).
