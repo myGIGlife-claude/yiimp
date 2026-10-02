@@ -309,40 +309,46 @@ class PayoutCommand extends CConsoleCommand
 
 		echo "$total {$coin->symbol} to pay...\n";
 
-		// claimed before the send: a second run finds no payouts with this txid
-		$res = dborun("UPDATE payouts SET completed=0, tx='orphaned', memoid='redo' WHERE tx=:txid", array(':txid'=>$txid));
-		if ($res != count($payouts))
-			die("payouts of $txid changed, check them\n");
-		echo "payouts marked as 'orphaned': $res\n";
+		// under the coin's payment lock, as the payment run and the other wallet sends
+		$nbnew = BackendPaymentLocked($coin->id, function () use ($txid, $payouts, $coin, $dests, $paid) {
+			// claimed before the send: a second run finds no payouts with this txid
+			$res = dborun("UPDATE payouts SET completed=0, tx='orphaned', memoid='redo' WHERE tx=:txid", array(':txid'=>$txid));
+			if ($res != count($payouts))
+				die("payouts of $txid changed, check them\n");
+			echo "payouts marked as 'orphaned': $res\n";
 
-		$nbnew = 0;
-		$remote = new WalletRPC($coin);
-		$res = $remote->sendmany((string) $coin->account, $dests);
-		if (!$res) {
-			var_dump($remote->error);
-			if ($remote->rejected()) {
-				// not sent: the payouts get their txid back
-				foreach ($payouts as $payout) $payout->save();
-				echo "payouts of $txid restored\n";
-			} else
-				echo "may have been sent: check the wallet, the payouts of $txid stay 'orphaned'\n";
-		} else {
-			$new_txid = $res;
-			echo "txid: $new_txid\n";
-			foreach ($payouts as $payout) {
-				if (empty($paid[$payout->id])) continue; // not in the new tx
-				$p = new db_payouts;
-				$p->time = time();
-				$p->idcoin = $coin->id;
-				$p->amount = floatval($payout->amount);
-				$p->account_id = $payout->account_id;
-				$p->completed = 1;
-				$p->fee = 0;
-				$p->tx = $new_txid;
-				$nbnew += $p->insert();
+			$nbnew = 0;
+			$remote = new WalletRPC($coin);
+			$res = $remote->sendmany((string) $coin->account, $dests);
+			if (!$res) {
+				var_dump($remote->error);
+				if ($remote->rejected()) {
+					// not sent: the payouts get their txid back
+					foreach ($payouts as $payout) $payout->save();
+					echo "payouts of $txid restored\n";
+				} else
+					echo "may have been sent: check the wallet, the payouts of $txid stay 'orphaned'\n";
+			} else {
+				$new_txid = $res;
+				echo "txid: $new_txid\n";
+				foreach ($payouts as $payout) {
+					if (empty($paid[$payout->id])) continue; // not in the new tx
+					$p = new db_payouts;
+					$p->time = time();
+					$p->idcoin = $coin->id;
+					$p->amount = floatval($payout->amount);
+					$p->account_id = $payout->account_id;
+					$p->completed = 1;
+					$p->fee = 0;
+					$p->tx = $new_txid;
+					$nbnew += $p->insert();
+				}
+				echo "payouts rows added: $nbnew\n";
 			}
-			echo "payouts rows added: $nbnew\n";
-		}
+			return $nbnew;
+		});
+		if ($nbnew === false)
+			die("a payment of {$coin->symbol} is running, try again later\n");
 		return $nbnew;
 	}
 

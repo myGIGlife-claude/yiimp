@@ -561,8 +561,11 @@ YAAMP_JOB_TEMPLATE *coind_create_template(YAAMP_COIND *coind)
 
 	coinbase_create(coind, templ, json_result);
 
-	// other stratum protocols (protocol.h): per job data (header hash...)
-	if(g_protocol && g_protocol->template_prepare && !g_protocol->template_prepare(coind, templ, json_result))
+	// an empty coinb2: coinbase_create() found no valid coinbase (e.g. a required charity/dev
+	// output without a usable address), no job for this coin. Other stratum protocols
+	// (protocol.h): per job data (header hash...), they check the coinbase they use
+	if((!g_protocol && !templ->coinb2[0]) ||
+		(g_protocol && g_protocol->template_prepare && !g_protocol->template_prepare(coind, templ, json_result)))
 	{
 		json_value_free(json);
 		templ->txsteps.clear();

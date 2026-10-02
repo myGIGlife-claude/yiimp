@@ -44,6 +44,7 @@ public:
 	char charity_address[1024];
 	double charity_amount;
 	double charity_percent;
+	time_t charity_error_time; // last ERROR for an unusable charity/dev address
 
 	bool enable;
 	bool auto_ready;

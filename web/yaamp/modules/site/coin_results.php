@@ -110,6 +110,8 @@ foreach ($list as $market) {
 
     echo '<td>' . (empty($sent) ? "" : "$sent ago") . '</td>';
     echo '<td>' . (empty($traded) ? "" : "$traded ago") . '</td>';
+    if (settings_get("market-{$market->id}-sending"))
+        $late = '<span class="red" title="a send timed out, check the wallet">to check</span> <a data-post href="/site/clearmarket?id=' . $market->id . '">clear</a>';
     echo '<td>' . $late . '</td>';
 
     echo '<td align="center">' . CHtml::encode($market->message) . '</td>';
@@ -151,7 +153,10 @@ foreach ($list as $bookmark) {
     echo '<td></td>';
 
     $sent = datetoa2($bookmark->lastused);
-    echo '<td>' . (empty($sent) ? "" : "$sent ago") . '</td>';
+    echo '<td>' . (empty($sent) ? "" : "$sent ago");
+    if (settings_get("bookmark-{$bookmark->id}-sending"))
+        echo ' <span class="red" title="a send timed out, check the wallet">to check</span> <a data-post href="/site/bookmarkClear?id=' . $bookmark->id . '">clear</a>';
+    echo '</td>';
     echo '<td></td>';
     echo '<td></td>';
 

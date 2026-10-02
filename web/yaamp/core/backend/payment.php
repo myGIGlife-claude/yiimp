@@ -80,6 +80,40 @@ function BackendPaymentLocked($coinid, $fn)
     }
 }
 
+// a wallet send outside the payment run (bookmark, market, renting withdraw...), with the same
+// rules: under the coin's payment lock and claimed before the wallet call. $claim() records the
+// send, false when it cannot (e.g. an earlier send is still to check). $release() undoes the
+// claim, only when the wallet refused the send; after an unclear failure (timeout, bad answer)
+// the claim is kept for a manual check, so the same send is never made twice.
+// $params: of sendtoaddress (address, amount...). Returns the txid, false when the wallet failed
+// (see $remote->rejected()), null when nothing was sent (lock held or claim refused)
+function BackendWalletSend($coin, $remote, $claim, $release, ...$params)
+{
+    $res = BackendPaymentLocked($coin->id, function () use ($remote, $claim, $release, $params) {
+        if (!$claim())
+            return array(null);
+        $tx = $remote->sendtoaddress(...$params);
+        if (!$tx && $remote->rejected())
+            $release();
+        return array($tx);
+    });
+    return $res ? $res[0] : null;
+}
+
+// BackendWalletSend() claimed by a settings row ($key, "<what>-<id>-sending"): removed once sent
+// or refused, kept after an unclear failure until the admin checks the wallet and clears it
+function BackendWalletSendOnce($coin, $remote, $key, ...$params)
+{
+    $tx = BackendWalletSend($coin, $remote, function () use ($key) {
+        return !settings_get($key) && settings_set($key, time());
+    }, function () use ($key) {
+        settings_unset($key);
+    }, ...$params);
+    if ($tx)
+        settings_unset($key);
+    return $tx;
+}
+
 // admin cancel of an unsent payout: never while a payment run of its coin may be sending it
 function BackendPayoutCancel($payout)
 {
