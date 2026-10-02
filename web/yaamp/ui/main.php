@@ -38,7 +38,7 @@ $cs->registerCoreScript('jquery.ui');
 echo CHtml::scriptFile('/yaamp/ui/js/jquery.tablesorter.js');
 
 // the actions changing state only accept a POST with the session token (CSRF):
-// links with a data-post attribute (and data-confirm, a question) are sent by yaampPost()
+// links with a data-post attribute are sent by yaampPost()
 $csrf = controller()->csrfToken();
 echo <<<END
 <script>
@@ -49,8 +49,7 @@ function yaampPost(url) {
 }
 $(document).on('click', 'a[data-post]', function(e) {
 	e.preventDefault();
-	var question = $(this).attr('data-confirm');
-	if (!question || confirm(question)) yaampPost(this.href);
+	yaampPost(this.href);
 });
 </script>
 END;
