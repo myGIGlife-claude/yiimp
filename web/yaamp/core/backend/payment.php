@@ -23,7 +23,7 @@ function BackendUserCancelFailedPayment($userid)
         ':uid' => $user->id
     ));
     foreach ($failed as $payout) {
-        if (BackendPayoutRestore($payout))
+        if (BackendPayoutCancel($payout))
             $amount_failed += floatval($payout->amount);
     }
 
@@ -65,20 +65,37 @@ function BackendPayoutRestore($payout)
     });
 }
 
+// one payment action per coin at a time (the payment runs of the cron and the admin, the
+// cancel of unsent payouts): a MySQL lock, also released if the process dies.
+// Returns the result of $fn, or false when the lock is held by another process
+function BackendPaymentLocked($coinid, $fn)
+{
+    $lock = "CONCAT(DATABASE(), '.payment.', :id)";
+    if (!dboscalar("SELECT GET_LOCK($lock, 0)", array(':id' => $coinid)))
+        return false;
+    try {
+        return $fn();
+    } finally {
+        dboscalar("SELECT RELEASE_LOCK($lock)", array(':id' => $coinid));
+    }
+}
+
+// admin cancel of an unsent payout: never while a payment run of its coin may be sending it
+function BackendPayoutCancel($payout)
+{
+    return BackendPaymentLocked($payout->idcoin, function () use ($payout) {
+        return BackendPayoutRestore($payout);
+    });
+}
+
 function BackendCoinPayments($coin)
 {
-    // one payment run per coin at a time (cron and the admin action): a MySQL lock, also
-    // released if the process dies
-    $lock = "CONCAT(DATABASE(), '.payment.', :id)";
-    if (!dboscalar("SELECT GET_LOCK($lock, 0)", array(':id' => $coin->id))) {
-        debuglog("payment: {$coin->symbol} payment already running");
-        return;
-    }
-    try {
+    $ran = BackendPaymentLocked($coin->id, function () use ($coin) {
         BackendCoinPaymentsLocked($coin);
-    } finally {
-        dboscalar("SELECT RELEASE_LOCK($lock)", array(':id' => $coin->id));
-    }
+        return true;
+    });
+    if (!$ran)
+        debuglog("payment: {$coin->symbol} payment already running");
 }
 
 function BackendCoinPaymentsLocked($coin)

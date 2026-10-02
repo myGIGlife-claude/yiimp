@@ -707,11 +707,7 @@ void *client_thread(void *p)
 	if (g_debuglog_client) {
 		debuglog("client terminate\n");
 	}
-	if(!client) {
-		pthread_exit(NULL);
-	}
-
-	else if(client->sock->total_read == 0)
+	if(client->sock->total_read == 0)
 		clientlog(client, "no data");
 
 	if(client->sock->sock >= 0)

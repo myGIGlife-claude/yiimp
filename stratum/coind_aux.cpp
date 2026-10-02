@@ -64,11 +64,8 @@ vector<string> coind_aux_hashlist(YAAMP_COIND_AUX **auxs, int size)
 			char hash_be[1024];
 			memset(hash_be, 0, 1024);
 
-			if(auxs[i]->hash != NULL)
-			{
-				string_be(auxs[i]->hash, hash_be);
-				hashlist.push_back(hash_be);
-			}
+			string_be(auxs[i]->hash, hash_be);
+			hashlist.push_back(hash_be);
 		}
 		else
 			hashlist.push_back("0000000000000000000000000000000000000000000000000000000000000000");

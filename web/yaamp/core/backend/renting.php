@@ -280,11 +280,17 @@ function BackendUpdateDeposit()
         debuglog("withdraw send $renter->id $renter->address sendtoaddress($tx->address, $tx->amount)");
         $tx->tx = $remote->sendtoaddress($tx->address, round($tx->amount, 8));
 
-        if (!$tx->tx) {
+        if (!$tx->tx && $remote->rejected()) {
             $tx->tx = 'failed';
             $tx->save();
 
             continue;
+        }
+        if (!$tx->tx) {
+            // may have been sent (timeout): kept as 'sending' and debited, for a manual check
+            debuglog("withdraw $tx->id to check: {$remote->error}");
+            send_email_alert('renting', "renter withdraw tx to check", "withdraw $tx->id of renter $renter->id, $tx->amount to $tx->address: {$remote->error}\r\nCheck your wallet recent transactions to know if it was sent.");
+            $tx->tx = 'sending';
         }
 
         $renter->balance -= $tx->amount + $fees;

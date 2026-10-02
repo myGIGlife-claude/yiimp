@@ -43,6 +43,9 @@ $csrf = controller()->csrfToken();
 echo <<<END
 <script>
 function yaampPost(url) {
+	// once per page load: a double click must not send a payment twice
+	if (yaampPost.sent) return;
+	yaampPost.sent = true;
 	var form = $('<form method="post">').attr('action', url);
 	form.append($('<input type="hidden" name="csrf">').val('$csrf'));
 	form.appendTo('body').submit();
@@ -51,6 +54,8 @@ $(document).on('click', 'a[data-post]', function(e) {
 	e.preventDefault();
 	yaampPost(this.href);
 });
+$(window).on('pageshow', function() { yaampPost.sent = false; }); // back to a cached page
+
 </script>
 END;
 
