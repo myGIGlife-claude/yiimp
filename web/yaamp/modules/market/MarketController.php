@@ -1,6 +1,8 @@
 <?php
 class MarketController extends CommonController
 {
+    protected $postActions = array('enable', 'delete', 'sellto');
+
     public function actionUpdate()
     {
         if (!$this->admin) return;

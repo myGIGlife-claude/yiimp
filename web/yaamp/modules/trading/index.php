@@ -9,7 +9,7 @@ JavascriptFile("/extensions/jqplot/plugins/jqplot.highlighter.js");
 $height = '240px';
 
 $wallet = user()->getState('yaamp-wallet');
-if (!empty($wallet) && preg_match('/[^A-Za-z0-9]/', $wallet))
+if (!empty($wallet) && !isValidAddress($wallet))
 {
     die;
 }

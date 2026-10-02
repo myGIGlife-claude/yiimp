@@ -110,9 +110,10 @@ if (!empty($list)) foreach ($list as $peer)
     echo '<td>';
     $options = array(
         'class' => 'red',
-        'title' => 'Disconnect from node'
+        'title' => 'Disconnect from node',
+        'data-post' => 1
     );
-    echo CHtml::link('remove', '/site/peerRemove?id=' . $coin->id . '&node=' . $node, $options);
+    echo CHtml::link('remove', '/site/peerRemove?id=' . $coin->id . '&node=' . urlencode($node), $options);
     echo '</td>';
 
     echo '</tr>';

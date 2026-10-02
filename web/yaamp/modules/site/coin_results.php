@@ -116,10 +116,10 @@ foreach ($list as $market) {
 
     echo '<td align="right">';
     if ($market->disabled)
-        echo '<a title="Enable this market" href="/market/enable?id=' . $market->id . '&en=1">enable</a>';
+        echo '<a data-post title="Enable this market" href="/market/enable?id=' . $market->id . '&en=1">enable</a>';
     else
-        echo '<a title="Disable this market" href="/market/enable?id=' . $market->id . '&en=0">disable</a>';
-    echo '&nbsp;<a class="red" title="Remove this market" href="/market/delete?id=' . $market->id . '">delete</a>';
+        echo '<a data-post title="Disable this market" href="/market/enable?id=' . $market->id . '&en=0">disable</a>';
+    echo '&nbsp;<a data-post class="red" title="Remove this market" href="/market/delete?id=' . $market->id . '">delete</a>';
     echo '</td>';
 
     echo "</tr>";
@@ -142,7 +142,7 @@ foreach ($list as $bookmark) {
         echo CHtml::link("send", "javascript:;", array(
             'onclick' => "return showSellAmountDialog($name, $addr, 0, {$bookmark->id});"
         ));
-        echo ' ' . $bookmark->address;
+        echo ' ' . CHtml::encode($bookmark->address);
     }
     echo ' <a href="/site/bookmarkEdit?id=' . $bookmark->id . '">edit</a>';
     echo '</td>';
@@ -158,7 +158,7 @@ foreach ($list as $bookmark) {
     echo '<td align="center"></td>';
 
     echo '<td align="right">';
-    echo '<a class="red" href="/site/bookmarkDel?id=' . $bookmark->id . '">delete</a>';
+    echo '<a data-post class="red" href="/site/bookmarkDel?id=' . $bookmark->id . '">delete</a>';
     echo '</td>';
 
     echo "</tr>";

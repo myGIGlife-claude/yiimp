@@ -3,6 +3,7 @@
 class BenchController extends CommonController
 {
 	public $defaultAction='index';
+	protected $postActions = array('del');
 
 	/////////////////////////////////////////////////
 

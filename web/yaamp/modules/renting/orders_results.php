@@ -73,8 +73,8 @@ foreach ($list as $job)
 
     if (YAAMP_RENTAL)
     {
-        if ($job->ready) echo "<a title='pause job' href='/renting/jobs_stop?id=$job->id'><img height=16 src='/images/base/pause.png'></a>";
-        else echo "<a title='start job' href='/renting/jobs_start?id=$job->id'><img height=16 src='/images/base/play.png'></a>";
+        if ($job->ready) echo "<a data-post title='pause job' href='/renting/jobs_stop?id=$job->id'><img height=16 src='/images/base/pause.png'></a>";
+        else echo "<a data-post title='start job' href='/renting/jobs_start?id=$job->id'><img height=16 src='/images/base/play.png'></a>";
     }
 
     echo "&nbsp;&nbsp;";
@@ -96,8 +96,8 @@ else echo "<p style='padding: 10px;'>You have to fund your account by sending bi
 
 if (YAAMP_RENTAL)
 {
-    echo " <button class='main-submit-button' onclick='javascript:window.location.href=\"/renting/jobs_startall\"'>Start All</button>";
-    echo " <button class='main-submit-button' onclick='javascript:window.location.href=\"/renting/jobs_stopall\"'>Stop All</button>";
+    echo " <button class='main-submit-button' onclick='yaampPost(\"/renting/jobs_startall\")'>Start All</button>";
+    echo " <button class='main-submit-button' onclick='yaampPost(\"/renting/jobs_stopall\")'>Stop All</button>";
 }
 
 echo "<br><br>";

@@ -52,7 +52,7 @@ foreach ($orders as $order)
     echo $bidvalue > 0.01 ? "<td><b>$bidvalue</b></td>" : "<td>$bidvalue</td>";
 
     // 	echo "<td>";
-    // 	echo "<a href='/site/cancelorder?id=$order->id'>[cancel]</a> ";
+    // 	echo "<a data-post href='/site/cancelorder?id=$order->id'>[cancel]</a> ";
     // 	echo "<a href='/site/sellorder?id=$order->id'>[sell]</a>";
     // 	echo "</td>";
     echo "</tr>";
@@ -122,7 +122,7 @@ foreach ($exchanges as $exchange)
     if ($exchange->status == 'waiting')
     {
         //	echo "<a href='/site/clearexchange?id=$exchange->id'>[clear]</a>";
-        echo "<a href='/site/deleteexchange?id=$exchange->id'>[del]</a>";
+        echo "<a data-post href='/site/deleteexchange?id=$exchange->id'>[del]</a>";
     }
 
     echo "</td>";

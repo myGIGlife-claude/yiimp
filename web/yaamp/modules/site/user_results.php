@@ -118,7 +118,7 @@ foreach ($users as $user)
     echo '<td width="24">' . $user->id . '</td>';
     echo '<td width="16">' . $coinimg . '</td>';
     echo '<td width="48"><b>' . $coinlink . '</b></td>';
-    echo '<td><a href="/?address=' . $user->username . '"><b>' . $user->username . '</b></a></td>';
+    echo '<td><a href="/?address=' . urlencode($user->username) . '"><b>' . CHtml::encode($user->username) . '</b></a></td>';
     echo '<td data="' . $user->last_earning . '">' . $d . '</td>';
     echo '<td align=right>' . $miner_count . '</td>';
 
@@ -134,13 +134,13 @@ foreach ($users as $user)
 
     echo '<td class="actions" align="right">';
 
-    if ($user->logtraffic) echo '<a href="/site/loguser?id=' . $user->id . '&en=0">unwatch</a> ';
-    else echo '<a href="/site/loguser?id=' . $user->id . '&en=1">watch</a> ';
+    if ($user->logtraffic) echo '<a data-post href="/site/loguser?id=' . $user->id . '&en=0">unwatch</a> ';
+    else echo '<a data-post href="/site/loguser?id=' . $user->id . '&en=1">watch</a> ';
 
-    if ($user->is_locked) echo '<a href="/site/unblockuser?wallet=' . $user->username . '">unblock</a> ';
-    else echo '<a href="/site/blockuser?wallet=' . $user->username . '">block</a> ';
+    if ($user->is_locked) echo '<a data-post href="/site/unblockuser?wallet=' . urlencode($user->username) . '">unblock</a> ';
+    else echo '<a data-post href="/site/blockuser?wallet=' . urlencode($user->username) . '">block</a> ';
 
-    echo '<a href="/site/banuser?id=' . $user->id . '"><span class="red">BAN</span></a>';
+    echo '<a data-post href="/site/banuser?id=' . $user->id . '"><span class="red">BAN</span></a>';
 
     echo '</td>';
 
