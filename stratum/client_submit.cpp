@@ -131,7 +131,8 @@ static void client_do_submit(YAAMP_CLIENT *client, YAAMP_JOB *job, YAAMP_JOB_VAL
 		if(!templ->auxs[i]) continue;
 		YAAMP_COIND *coind_aux = templ->auxs[i]->coind;
 
-		if(!coind_aux || !strcmp(coind->symbol, coind_aux->symbol2))
+		// no aux target yet: target_aux would be read uninitialized
+		if(!coind_aux || !strcmp(coind->symbol, coind_aux->symbol2) || strlen(coind_aux->aux.target) != 64)
 			continue;
 
 		unsigned char target_aux[1024];
