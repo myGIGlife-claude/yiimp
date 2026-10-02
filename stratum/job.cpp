@@ -111,7 +111,7 @@ static bool job_assign_client(YAAMP_JOB *job, YAAMP_CLIENT *client, double maxha
 			client->extranonce2size = client->extranonce2size_default;
 
 			client->reconnecting = true;
-			client->lock_count++;
+			object_lock(client); // for the reconnecting miner (client_subscribe), released by object_prune
 			client->unlock = true;
 			client->jobid_sent = client->jobid_next;
 
@@ -182,6 +182,17 @@ void job_assign_clients(YAAMP_JOB *job, double maxhash)
 	g_list_client.Leave();
 }
 
+// coind->job is replaced by the threads creating the jobs, and the old one is freed by
+// object_prune once deleted: read it and lock it under the job list lock
+static YAAMP_JOB *job_lock_coind_job(YAAMP_COIND *coind)
+{
+	g_list_job.Enter();
+	YAAMP_JOB *job = coind->job;
+	object_lock(job);
+	g_list_job.Leave();
+	return job;
+}
+
 void job_assign_clients_left(double factor)
 {
 	bool b;
@@ -191,7 +202,9 @@ void job_assign_clients_left(double factor)
 
 		YAAMP_COIND *coind = (YAAMP_COIND *)li->data;
 		if(!coind_can_mine(coind)) continue;
-		if(!coind->job) continue;
+
+		YAAMP_JOB *job = job_lock_coind_job(coind);
+		if(!job) continue;
 
 		double nethash = coind_nethash(coind);
 		g_list_client.Enter();
@@ -209,12 +222,13 @@ void job_assign_clients_left(double factor)
 			//debuglog("%s %s factor %f nethash %.3f\n", coind->symbol, client->username, factor, nethash);
 
 			if (factor > 0.) {
-				b = job_assign_client(coind->job, client, nethash*factor);
+				b = job_assign_client(job, client, nethash*factor);
 				if(!b) break;
 			}
 		}
 
 		g_list_client.Leave();
+		object_unlock(job);
 	}
 }
 
@@ -305,9 +319,15 @@ void job_update()
 		YAAMP_COIND *coind = (YAAMP_COIND *)g_list_coind.first->data;
 		if(!coind) break;
 
-		job_reset_clients(coind->job);
+		YAAMP_JOB *job = job_lock_coind_job(coind);
+		job_reset_clients(job);
+		object_unlock(job);
+
 		coind_create_job(coind, true);
-		job_assign_clients(coind->job, -1);
+
+		job = job_lock_coind_job(coind);
+		job_assign_clients(job, -1);
+		object_unlock(job);
 
 		break;
 	}

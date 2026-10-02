@@ -181,9 +181,9 @@ void db_update_workers(YAAMP_DB *db)
 		if(client->speed < 0.00001)
 		{
 			clientlog(client, "speed %f", client->speed);
+			// the client thread wakes up and deletes its client
 			shutdown(client->sock->sock, SHUT_RDWR);
 			db_clear_worker(db, client);
-			object_delete(client);
 			continue;
 		}
 

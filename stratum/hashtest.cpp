@@ -852,6 +852,43 @@ int main(int argc, char **argv)
 	if (!height_errors) printf("OK   coinbase height KAT\n");
 	errors += height_errors;
 
+	// miner login addresses (client_authorize)
+	static const struct { const char *name; bool valid; } usernames[] = {
+		{ "RXwZbGmvgEkyuhaRTpmkHS6WH2fTmJ2p9w", true }, { "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq", true },
+		{ "0x52908400098527886E0F7030069857D2E4169EE7", true }, { "test", true },
+		{ "", false }, { "addr'or'1", false }, { "addr\"", false }, { "addr%s", false }, { "addr\n", false },
+		{ "addr-x", false }, { "\xc3\xa9t\xc3\xa9", false },
+	};
+	int user_errors = 0;
+	for (auto &u : usernames) {
+		if (is_valid_username(u.name) != u.valid) {
+			printf("FAIL username '%s' %s\n", u.name, u.valid ? "rejected" : "accepted");
+			user_errors++;
+		}
+	}
+	char longname[MAX_ADDRESS_LEN + 2];
+	memset(longname, 'a', sizeof(longname)); longname[MAX_ADDRESS_LEN] = 0;
+	if (!is_valid_username(longname)) { printf("FAIL username of %d chars rejected\n", MAX_ADDRESS_LEN); user_errors++; }
+	longname[MAX_ADDRESS_LEN] = 'a'; longname[MAX_ADDRESS_LEN + 1] = 0;
+	if (is_valid_username(longname)) { printf("FAIL username of %d chars accepted\n", MAX_ADDRESS_LEN + 1); user_errors++; }
+	if (!user_errors) printf("OK   username validation KAT\n");
+	errors += user_errors;
+
+	// connections per source ip (STRATUM:max_cons_per_ip), IPv6 counted per /64
+	bool ipcap = ip_connection_add("10.0.0.1", 2) && ip_connection_add("10.0.0.1", 2)
+		&& !ip_connection_add("10.0.0.1", 2) && ip_connection_add("10.0.0.2", 2)
+		&& !ip_connection_add("::ffff:10.0.0.1", 2);
+	ip_connection_remove("10.0.0.1");
+	ipcap = ipcap && ip_connection_add("10.0.0.1", 2) && !ip_connection_add("10.0.0.1", 2);
+	ipcap = ipcap && ip_connection_add("2001:db8:1:2::1", 1) && !ip_connection_add("2001:db8:1:2:ffff::9", 1)
+		&& ip_connection_add("2001:db8:1:3::1", 1);
+	ip_connection_remove("2001:db8:1:2::1");
+	ipcap = ipcap && ip_connection_add("2001:db8:1:2::5", 1);
+	for (int i = 0; i < 5; i++) ipcap = ipcap && ip_connection_add("10.0.0.3", 0);
+	if (!ipcap) printf("FAIL connections per ip KAT\n");
+	else printf("OK   connections per ip KAT\n");
+	errors += !ipcap;
+
 	// extend the header with a pattern for the algos using longer headers
 	for (int i = 80; i < (int) sizeof(input); i++)
 		input[i] = (unsigned char) (i * 7);

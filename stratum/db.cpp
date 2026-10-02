@@ -375,7 +375,12 @@ void db_update_coinds(YAAMP_DB *db)
 				object_delete(coind);
 				continue;
 			}
-			coind_init(coind);
+			if (!coind_init(coind)) {
+				// not in the list yet: retried on the next loop
+				coind_terminate(coind);
+				delete coind;
+				continue;
+			}
 
 			g_list_coind.AddTail(coind);
 			usleep(100*YAAMP_MS);

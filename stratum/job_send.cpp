@@ -164,9 +164,8 @@ void job_broadcast(YAAMP_JOB *job)
 			if (client->broadcast_timeouts >= 3) {
 				shutdown(client->sock->sock, SHUT_RDWR);
 				clientlog(client, "unable to send job, sock err %d (%d times)", err, client->broadcast_timeouts);
-				// the shutdown wakes the client thread, which clears the
-				// worker row under g_db_mutex (shared mysql handle)
-				object_delete(client);
+				// the shutdown wakes the client thread, which clears the worker
+				// row under g_db_mutex (shared mysql handle) and deletes the client
 			}
 		}
 		count++;

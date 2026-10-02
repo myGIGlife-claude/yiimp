@@ -89,6 +89,10 @@ void string_be(const char *input, char *output);
 void string_be1(char *s);
 
 bool ishexa(char *hex, int len);
+bool is_valid_username(const char *username);
+
+bool ip_connection_add(const char *ip, int max);
+void ip_connection_remove(const char *ip);
 
 void hexlify(char *hex, const unsigned char *bin, int len);
 void binlify(unsigned char *bin, const char *hex);
