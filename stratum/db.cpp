@@ -193,6 +193,8 @@ void db_update_coinds(YAAMP_DB *db)
 {
 	if(!db) return;
 
+	// locked: the job thread sorts (relinks) the list
+	g_list_coind.Enter();
 	for(CLI li = g_list_coind.first; li; li = li->next)
 	{
 		YAAMP_COIND *coind = (YAAMP_COIND *)li->data;
@@ -202,6 +204,7 @@ void db_update_coinds(YAAMP_DB *db)
 		debuglog("disabling %s\n", coind->symbol);
 		db_query(db, "update coins set auto_ready=%d where id=%d", coind->auto_ready, coind->id);
 	}
+	g_list_coind.Leave();
 
 	////////////////////////////////////////////////////////////////////////////////////////
 

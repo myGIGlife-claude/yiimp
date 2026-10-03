@@ -63,6 +63,8 @@ void db_add_user(YAAMP_DB *db, YAAMP_CLIENT *client)
 		// allow benchmark / test / donate usernames
 		if (!strcmp(client->username, "benchmark") || !strcmp(client->username, "donate") || !strcmp(client->username, "test")) {
 			guest = true;
+			// locked: the main thread prunes the coins (no other lock taken under it here)
+			g_list_coind.Enter();
 			if (g_list_coind.first) {
 				CLI li = g_list_coind.first;
 				YAAMP_COIND *coind = (YAAMP_COIND *)li->data;
@@ -71,6 +73,7 @@ void db_add_user(YAAMP_DB *db, YAAMP_CLIENT *client)
 				if (!strcmp(client->username, "benchmark")) strcat(client->password, ",stats");
 				if (!strcmp(client->username, "donate")) gift = 100;
 			}
+			g_list_coind.Leave();
 		}
 		if (!guest) {
 			debuglog("Invalid user address '%s'\n", client->username);
