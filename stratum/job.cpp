@@ -299,6 +299,8 @@ void job_update()
 
 	////////////////////////////////////////////////////////////////////////////////////////////////
 
+	// coin list first: same lock order as job_assign_clients_left() and coind_create_job()
+	g_list_coind.Enter();
 	g_list_client.Enter();
 	for(CLI li = g_list_client.first; li; li = li->next)
 	{
@@ -330,6 +332,7 @@ void job_update()
 	}
 
 	g_list_client.Leave();
+	g_list_coind.Leave();
 
 	////////////////////////////////////////////////////////////////////////////////////////////////
 

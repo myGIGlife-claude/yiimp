@@ -584,8 +584,15 @@ bool coind_create_job(YAAMP_COIND *coind, bool force)
 {
 //	debuglog("create job %s\n", coind->symbol);
 
-	bool b = rpc_connected(&coind->rpc);
-	if(!b) return false;
+	// the template reads the other coins (aux chains, profitability) and the main thread
+	// adds, sorts, terminates (destroys coind->mutex) and prunes them under the coin list
+	// lock (recursive). Lock order: coin list, coind->mutex, job list
+	g_list_coind.Enter();
+	if(coind->deleted || !rpc_connected(&coind->rpc))
+	{
+		g_list_coind.Leave();
+		return false;
+	}
 
 	CommonLock(&coind->mutex);
 
@@ -603,6 +610,7 @@ bool coind_create_job(YAAMP_COIND *coind, bool force)
 	if(!templ)
 	{
 		CommonUnlock(&coind->mutex);
+		g_list_coind.Leave();
 //		debuglog("%s: create job template failed!\n", coind->symbol);
 		return false;
 	}
@@ -622,6 +630,7 @@ bool coind_create_job(YAAMP_COIND *coind, bool force)
 		delete templ;
 
 		CommonUnlock(&coind->mutex);
+		g_list_coind.Leave();
 		return true;
 	}
 
@@ -672,6 +681,7 @@ bool coind_create_job(YAAMP_COIND *coind, bool force)
 
 	g_list_job.AddTail(coind->job);
 	CommonUnlock(&coind->mutex);
+	g_list_coind.Leave();
 
 //	debuglog("coind_create_job %s %d new job %x\n", coind->name, coind->height, coind->job->id);
 
