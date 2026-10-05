@@ -1,5 +1,13 @@
 <?php
 
+// WalletRPC reports a missing method as "error -32601: method not found" (not the bare text
+// older daemons returned); match both, or auxpow/submitblock detection reads it as supported.
+function rpc_method_not_found($error)
+{
+    return stripos((string) $error, 'method not found') !== false;
+}
+
+
 function percent_feedback($v, $n, $p)
 {
     return ($v * (100 - $p) + $n * $p) / 100;
@@ -108,7 +116,7 @@ function BackendCoinsUpdate()
 
         if ($coin->hassubmitblock == NULL) {
             $remote->submitblock('');
-            if (strcasecmp($remote->error, 'method not found') == 0)
+            if (rpc_method_not_found($remote->error))
                 $coin->hassubmitblock = false;
             else
                 $coin->hassubmitblock = true;
@@ -117,7 +125,7 @@ function BackendCoinsUpdate()
         if ($coin->auxpow == NULL) {
             $ret = $remote->getauxblock();
 
-            if (strcasecmp($remote->error, 'method not found') == 0)
+            if (rpc_method_not_found($remote->error))
                 $coin->auxpow = false;
             else
                 $coin->auxpow = true;
@@ -197,7 +205,7 @@ function BackendCoinsUpdate()
             $coin->auto_ready = ($coin->connections > 0);
         }
 
-        else if (strcasecmp($remote->error, 'method not found') == 0) {
+        else if (rpc_method_not_found($remote->error)) {
             $template = $remote->getmemorypool();
             if ($template && isset($template['coinbasevalue'])) {
                 $coin->usememorypool = true;
