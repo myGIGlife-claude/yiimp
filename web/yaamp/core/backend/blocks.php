@@ -58,8 +58,10 @@ function BackendBlockNew($coin, $db_block)
         $ucoin = (object) dborow("SELECT algo,symbol FROM coins WHERE id=:id", array(
             ':id' => $user->coinid
         ));
-        if (!YAAMP_ALLOW_EXCHANGE && $ucoin && $ucoin->algo != $coin->algo) {
-            debuglog($coin->symbol . ": invalid earning for {$user->username}, user coin is {$ucoin->symbol}");
+        // a miner whose account has no coin row gives an empty object: read the fields without a warning
+        $ucoin_algo = $ucoin->algo ?? null;
+        if (!YAAMP_ALLOW_EXCHANGE && $ucoin && $ucoin_algo != $coin->algo) {
+            debuglog($coin->symbol . ": invalid earning for {$user->username}, user coin is " . ($ucoin->symbol ?? 'none'));
             $earning->status = -1;
         }
 
